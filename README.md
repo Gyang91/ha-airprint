@@ -1,12 +1,13 @@
-<p align="center">
-  <img src="custom_components/airprint/brand/icon.png" width="128" alt="AirPrint">
-</p>
+<img src="https://raw.githubusercontent.com/Gyang91/ha-airprint/main/custom_components/airprint/brand/icon.png" width="96" alt="">
 
-<h1 align="center">AirPrint for Home Assistant</h1>
+# AirPrint for Home Assistant
 
-<p align="center">
-  Share any network printer as an AirPrint printer, from Home Assistant.
-</p>
+[![Release](https://img.shields.io/github/v/release/Gyang91/ha-airprint)](https://github.com/Gyang91/ha-airprint/releases)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange)](https://hacs.xyz/docs/faq/custom_repositories)
+[![CI](https://github.com/Gyang91/ha-airprint/actions/workflows/ci.yml/badge.svg)](https://github.com/Gyang91/ha-airprint/actions/workflows/ci.yml)
+[![Security](https://github.com/Gyang91/ha-airprint/actions/workflows/security.yml/badge.svg)](https://github.com/Gyang91/ha-airprint/actions/workflows/security.yml)
+
+Share any network printer as an AirPrint printer, from Home Assistant.
 
 ---
 
