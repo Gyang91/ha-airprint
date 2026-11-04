@@ -51,34 +51,28 @@ jobs:
           INPUT_IMAGE: ${{ inputs.image }}
         run: echo "ref=${INPUT_IMAGE:-airprint:scan}" >> "${GITHUB_OUTPUT}"
 
-      - name: Full report (all severities)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ steps.target.outputs.ref }}
-          scanners: vuln
-          vuln-type: os,library
-          format: sarif
-          output: trivy.sarif
+      # Trivy runs from its official image (pinned), not an install script:
+      # one download path less to fail. The Docker socket gives it the image.
+      - name: Scan
+        id: scan
+        env:
+          TARGET: ${{ steps.target.outputs.ref }}
+          TRIVY: aquasec/trivy:0.70.0
+        run: |
+          run() { docker run --rm -v /var/run/docker.sock:/var/run/docker.sock             -v "${PWD}:/out" -v "${HOME}/.cache/trivy:/root/.cache/trivy" "${TRIVY}" "$@"; }
+          run image --scanners vuln --format sarif --output /out/trivy.sarif "${TARGET}"
+          run image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed             --format table --output /out/trivy.txt "${TARGET}"
+          run image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed             --format json --output /out/trivy.json "${TARGET}"
+          count=$(jq '[.Results[]?.Vulnerabilities[]?] | length' trivy.json)
+          echo "fixable=${count}" >> "${GITHUB_OUTPUT}"
+          echo "Fixable HIGH/CRITICAL: ${count}"
 
       - name: Upload to code scanning
-        if: ${{ always() && github.event_name != 'pull_request' }}
+        if: ${{ always() && github.event_name != 'pull_request' && hashFiles('trivy.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy.sarif
           category: trivy-image
-
-      - name: Fail on fixable HIGH/CRITICAL
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ steps.target.outputs.ref }}
-          scanners: vuln
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          format: table
-          output: trivy.txt
-          exit-code: "1"
-          skip-setup-trivy: true
 
       - name: Summary
         if: ${{ always() }}
@@ -89,5 +83,10 @@ jobs:
             cat trivy.txt 2>/dev/null || echo "no report"
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
-          grep -E '^│ [a-z0-9.+-]+ +│ CVE-' trivy.txt 2>/dev/null | head -40 |
-            sed -E 's/│/|/g; s/ +/ /g; s/^/::warning title=Fixable CVE::/' || true
+          jq -r '.Results[]?.Vulnerabilities[]? | "::warning title=Fixable \(.Severity)::\(.PkgName) \(.InstalledVersion) -> \(.FixedVersion) \(.VulnerabilityID)"' trivy.json 2>/dev/null | sort -u | head -45 || true
+
+      - name: Fail on fixable HIGH/CRITICAL
+        if: ${{ steps.scan.outputs.fixable != '0' }}
+        run: |
+          echo "::error::${{ steps.scan.outputs.fixable }} fixable HIGH/CRITICAL vulnerabilities - rebuild the image (the Dockerfile applies Debian's security updates)."
+          exit 1
