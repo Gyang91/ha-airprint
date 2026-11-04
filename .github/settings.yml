@@ -11,6 +11,9 @@ repository:
   allow_squash_merge: true
   allow_merge_commit: true
   allow_rebase_merge: true
+  # Pull requests merged by hand. Merges made by the workflows (auto-merge,
+  # release) delete their branch themselves.
+  delete_branch_on_merge: true
 
 labels:
   - name: 'bug'
