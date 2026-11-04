@@ -107,6 +107,8 @@ Each of these cost real debugging time at least once.
 - **`awk -v name=...` rewrites avahi's escapes** (`\032` is a space in `avahi-browse -p` output, awk reads it as an octal escape). Every printer with a space in its Bonjour name failed to resolve, so it read Offline and never got SNMP status. Pass the name through `ENVIRON` instead.
 - **`lpadmin -m everywhere` crashes cupsd 2.4.2 (bookworm)** with `free(): invalid pointer`. Driverless PPDs are built by cups-filters in its own process instead (`/usr/lib/cups/driver/driverless cat driverless:ipp://...`) and installed with `lpadmin -P`.
 - **cups-filters lists a reachable AirPrint printer as a `driverless:ipp://...` model**, so `lpinfo --device-id` "matches" it. That PPD only exists while the printer is on, and its raster output belongs on IPP, not the raw port: `discover.sh` turns such a match into the driverless path (IPP URI, PPD cached in `/config/driverless`).
+- **Our own CUPS advertises every shared queue over `_ipp._tcp`**, so IPP discovery finds "<queue> @ home-assistant" on this host and would offer it as a new driverless printer. `discover.sh` skips adverts from the host's own addresses (`hostname -I`; the add-on runs on the host network).
+- **CUPS gives a job up after `JobRetryLimit` retries** (default 5 x 30 s). A printer switched on by an automation needs longer to boot, so `cupsd.conf` sets 40 (20 min).
 - **A dnssd URI needs the service name URL-encoded** (`HP%20Laser%20(x)`), not avahi's `\032` escapes. The stored `device` identity keeps the avahi form for compatibility; only the print `uri` is encoded.
 
 ## Security scanning
