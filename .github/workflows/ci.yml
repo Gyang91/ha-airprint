@@ -39,7 +39,7 @@ jobs:
           shellcheck -S warning airprint/*.sh scripts/*.sh
 
       - name: Tests
-        run: bats tests/addon
+        run: bats -r tests
 
   addon:
     name: Add-on (${{ matrix.arch }})
