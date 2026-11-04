@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/Gyang91/ha-airprint/compare/v1.13.8...v1.14.0) (2026-11-04)
+
+
+### Features
+
+* print over a VPN with a "networks allowed to print" option ([5551200](https://github.com/Gyang91/ha-airprint/commit/55512007e0342e7755c378407ff2f321094bed8e))
+
 ## [1.13.8](https://github.com/Gyang91/ha-airprint/compare/v1.13.7...v1.13.8) (2026-11-04)
 
 
