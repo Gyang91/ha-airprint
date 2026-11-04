@@ -78,11 +78,6 @@ snmp_status() {
 		"${OID_UPTIME}" "${OID_SUPPLY}" "${OID_CAPACITY}" "${OID_LEVEL}" "${OID_PAGES}" 2>/dev/null
 }
 
-# snmp_value SNMP_OUTPUT OID -> the value, without quotes.
-snmp_value() {
-	printf '%s\n' "$1" | awk -v oid="$2" '$1 == oid { $1 = ""; sub(/^ /, ""); gsub(/"/, ""); print; exit }'
-}
-
 error_reasons() {
 	local hex
 	hex=$(snmpget -v1 -c public -t 2 -r 0 -Oqvx "$1" 1.3.6.1.2.1.25.3.5.1.2.1 2>/dev/null | tr -cd '0-9A-Fa-f')
@@ -113,16 +108,23 @@ job_counts() {
 # The printer's address. discover.sh already resolved every dnssd printer, so
 # only a socket:// printer (entered as an IP) is parsed here.
 host_of() {
-	local device=$1 found=$2 hostport
+	local device=$1 found=$2
 	case "${device}" in
 	dnssd://*)
 		printf '%s' "${found}" | jq -r --arg d "${device}" '.[] | select(.device == $d) | .address' | head -1
 		;;
-	socket://*)
-		hostport=${device#socket://}
-		hostport=${hostport%%/*}
-		printf '%s' "${hostport%%:*}"
-		;;
+	socket://*) socket_host "${device}" ;;
+	esac
+}
+
+# advertised DEVICE HOST -> true if the printer is known to be on the network.
+# A Bonjour printer is when discovery found it (HOST is set). A printer added by
+# IP has no advert: until it answers SNMP nothing says it is off, but once it
+# has, silence means it was switched off, not that it is stuck.
+advertised() {
+	case "$1" in
+	socket://*) [ -z "${SNMP_SEEN["$1"]:-}" ] && echo true || echo false ;;
+	*) [ -n "$2" ] && echo true || echo false ;;
 	esac
 }
 
@@ -189,12 +191,11 @@ scan() {
 		row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}.next"
 
 		HOST=$(host_of "${DEVICE}" "${found}")
-		ADVERTISED=true
+		ADVERTISED=$(advertised "${DEVICE}" "${HOST}")
 		if [ -n "${HOST}" ]; then
 			KNOWN_HOSTS["${DEVICE}"]=${HOST}
 		else
 			HOST=${KNOWN_HOSTS["${DEVICE}"]:-}
-			ADVERTISED=false
 		fi
 
 		SNMP=""

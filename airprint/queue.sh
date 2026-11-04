@@ -17,8 +17,14 @@ if [ "${DRIVER}" = "everywhere" ]; then
 	# cups-filters builds the PPD in its own process from the printer's IPP
 	# attributes (port 631). Not "lpadmin -m everywhere": that makes cupsd 2.4.2
 	# (bookworm) build it and crash with "free(): invalid pointer".
+	# A Bonjour printer's URI is dnssd://<name>._ipp._tcp.local/; one added by
+	# IP is already ipp://<address>/ipp/print.
+	case "${URI}" in
+	dnssd://*) IPP_URI="ipp://${URI#dnssd://}" ;;
+	*) IPP_URI=${URI} ;;
+	esac
 	mkdir -p "${CACHE}"
-	if /usr/lib/cups/driver/driverless cat "driverless:ipp://${URI#dnssd://}" > "${CACHE}/${QUEUE}.ppd.new" 2>/dev/null &&
+	if /usr/lib/cups/driver/driverless cat "driverless:${IPP_URI}" > "${CACHE}/${QUEUE}.ppd.new" 2>/dev/null &&
 		grep -q '^\*PPD-Adobe' "${CACHE}/${QUEUE}.ppd.new"; then
 		mv "${CACHE}/${QUEUE}.ppd.new" "${CACHE}/${QUEUE}.ppd"
 		printf '%s\n' "${URI}" > "${CACHE}/${QUEUE}.uri"

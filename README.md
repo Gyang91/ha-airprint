@@ -44,7 +44,6 @@ Not supported:
 
 - **USB-only printers.** The add-on prints over the network; a printer plugged into the Home Assistant machine is not used.
 - **Toner, page count and the reason behind a problem** need SNMP. A printer without it still prints and reports its queue; it reads **Online** while it is on the network (its Bonjour advert) and **Health** stays `OK`, because there is nothing to tell a problem from.
-- **Printers that don't announce themselves on the network** (no Bonjour/mDNS). Almost every network printer does; the advert is where the add-on reads the printer's model to match its driver. A printer added by its IP address alone gets no print queue yet.
 
 ## Install
 
@@ -73,6 +72,8 @@ Turn on **Watchdog** on the add-on's page, so Home Assistant restarts it if its 
 If the Marketplace opens the AirPrint setup straight after installing, it asks for the add-on's address first: keep `127.0.0.1` and port `8099`. Your printer is offered next.
 
 There is no IP address to type. The printer is found on the network, and stays found even if its address changes — see [How it finds your printer](#how-it-finds-your-printer).
+
+If your printer is not found (it does not announce itself with Bonjour), the form asks for its **IP address** instead — see [Printers added by IP address](#printers-added-by-ip-address).
 
 If no driver is available for your printer, you are asked for one here — see [Drivers](#drivers).
 
@@ -246,7 +247,14 @@ CUPS resolves it to an address **at the moment you print** — the same *"Lookin
 
 If it cannot be found, the printer reports **Offline** and the job waits in the queue, retried for up to 20 minutes, so a printer switched on in the meantime still prints it.
 
-A printer that advertises no Bonjour service at all is not supported yet: without the advert there is no model to match a driver to.
+### Printers added by IP address
+
+A printer that does not announce itself with Bonjour is added by its IP address. The add-on then reads its model over **SNMP** and matches a driver from that, just as it does from the Bonjour advert; failing that, it sets the printer up **driverless** if it answers IPP (`ipp://<address>/ipp/print`, which every IPP Everywhere printer serves). So the printer needs SNMP or IPP switched on — most network printers have both on by default.
+
+- **Give the printer a fixed address** (a DHCP reservation in your router). The queue holds the address you typed; if it changes, the printer reads **Offline** until you edit it.
+- **The printer must be on when the add-on starts** (or switch it on later: the add-on keeps trying every minute). Its model is read from the printer itself. A driverless one is then kept, like any [driverless printer](#driverless-printing).
+- **Online** follows SNMP: a printer that stops answering reads **Offline** (switched off), not **Problem**, because without an advert there is nothing to say it is still there. A printer with no SNMP at all reads **Online**.
+- If neither works, its **Status** reads `No driver` and a repair asks for a driver link, as for any printer — see [Drivers](#drivers).
 
 ## Printing over a VPN
 
@@ -294,7 +302,7 @@ Keep **ForceTLS** on: without it iOS lists no printer from the profile when away
 
 - **Who can print:** your home network (the network Home Assistant is in), plus any network you list under **Networks allowed to print**. Nobody else.
 - **Who can change the printer:** pausing it, making it reject jobs, cancelling other people's jobs, searching the network for printers and the admin pages need a signed-in administrator. Phones that may print can only print and manage their own jobs.
-- **Nothing pokes the printer's print port.** Some printers (Canon MFPs especially) wake and beep whenever anything connects to port 9100. Status comes from SNMP and the printer is found from its Bonjour advert, so only a real print job connects there.
+- **Nothing pokes the printer's print port.** Some printers (Canon MFPs especially) wake and beep whenever anything connects to port 9100. Status comes from SNMP and the printer is found from its Bonjour advert (or, added by IP, its model is read over SNMP), so only a real print job connects there.
 - **Nothing is opened to the internet.** For printing away from home, use a VPN ([above](#printing-over-a-vpn)) and open only TCP 631 to Home Assistant in your firewall.
 - **Self-healing:** if Avahi or the print server stops, the add-on stops too, and Home Assistant restarts it if **Watchdog** is on (the add-on's page; turn it on when you install). Its helpers (status feed, monitor) restart on their own, without interrupting printing.
 - The image is scanned for vulnerabilities on every change and weekly. CUPS issues without a fix in Debian yet are tracked in [CLAUDE.md](CLAUDE.md#security-scanning). They need a PostScript or Foomatic queue and an attacker already on your network; a driverless queue is neither.

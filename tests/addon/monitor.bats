@@ -9,7 +9,9 @@ setup() {
 	OID_LEVEL=.1.3.6.1.2.1.43.11.1.1.9.1.1
 	OID_CAPACITY=.1.3.6.1.2.1.43.11.1.1.8.1.1
 	OID_PAGES=.1.3.6.1.2.1.43.10.2.1.4.1.1
-	load_functions "${ADDON}/monitor.sh" snmp_value snmp_status error_reasons host_of job_counts printer_state
+	# shellcheck source=../../airprint/match.sh
+	. "${ADDON}/match.sh"
+	load_functions "${ADDON}/monitor.sh" snmp_status error_reasons host_of advertised job_counts printer_state
 	declare -gA SNMP_SEEN=()
 	fake_bin
 }
@@ -106,5 +108,38 @@ EOF2
 
 @test "printer_state: not advertised and silent is Offline" {
 	printer_state dnssd://Gone false false
+	[ "${ONLINE} ${PROBLEM}" = "false false" ]
+}
+
+@test "advertised: a Bonjour printer is on the network when discovery found it" {
+	[ "$(advertised dnssd://Hp 192.168.1.50)" = true ]
+	[ "$(advertised dnssd://Hp "")" = false ]
+}
+
+@test "printer_state: an IP printer without SNMP is Online, no Problem" {
+	fake snmpget <<'EOF2'
+#!/bin/bash
+exit 1
+EOF2
+	scan_once socket://10.0.0.5 "$(advertised socket://10.0.0.5 10.0.0.5)"
+	[ "${ONLINE} ${PROBLEM}" = "true false" ]
+	scan_once socket://10.0.0.5 "$(advertised socket://10.0.0.5 10.0.0.5)"
+	[ "${ONLINE} ${PROBLEM}" = "true false" ]
+}
+
+@test "printer_state: an IP printer that stops answering SNMP is Offline, not a Problem" {
+	fake snmpget <<EOF2
+#!/bin/bash
+echo "${OID_UPTIME} 12345"
+EOF2
+	scan_once socket://10.0.0.5 "$(advertised socket://10.0.0.5 10.0.0.5)"
+	[ "${ONLINE} ${PROBLEM}" = "true false" ]
+
+	# Switched off: no advert to say it is still there, so not "stuck".
+	fake snmpget <<'EOF2'
+#!/bin/bash
+exit 1
+EOF2
+	scan_once socket://10.0.0.5 "$(advertised socket://10.0.0.5 10.0.0.5)"
 	[ "${ONLINE} ${PROBLEM}" = "false false" ]
 }
