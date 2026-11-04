@@ -50,6 +50,10 @@ SLUG=""
 # browse; it still answers SNMP at its last address, so it stays Online.
 declare -A KNOWN_HOSTS=()
 
+# Devices that answered SNMP since the add-on started. Only for these is
+# silence evidence of a problem: a printer without SNMP never answers at all.
+declare -A SNMP_SEEN=()
+
 notify() {
 	curl -sS -o /dev/null -m 10 \
 		-H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
@@ -122,9 +126,32 @@ host_of() {
 	esac
 }
 
+# printer_state DEVICE ADVERTISED ANSWERED -> sets ONLINE and PROBLEM.
+# ANSWERED is true when SNMP sysUpTime answered this scan.
+printer_state() {
+	local device=$1 advertised=$2 answered=$3
+	if [ "${answered}" = "true" ]; then
+		SNMP_SEEN["${device}"]=1
+		ONLINE=true
+		PROBLEM=false
+	elif [ "${advertised}" = "true" ] && [ -n "${SNMP_SEEN["${device}"]:-}" ]; then
+		# Answered SNMP before, still on the network, silent now: stuck or
+		# showing an error.
+		ONLINE=true
+		PROBLEM=true
+	elif [ "${advertised}" = "true" ]; then
+		# No SNMP agent (or it is off): the advert is all we know.
+		ONLINE=true
+		PROBLEM=false
+	else
+		ONLINE=false
+		PROBLEM=false
+	fi
+}
+
 scan() {
 	local found configured="" jobs_by_queue
-	local QUEUE DEVICE LABEL LOCATION DRIVER MATCH URI HOST ADVERTISED SNMP ONLINE PROBLEM JOBS MODEL
+	local QUEUE DEVICE LABEL LOCATION DRIVER MATCH URI HOST ADVERTISED SNMP ANSWERED ONLINE PROBLEM JOBS MODEL
 	local TONER SUPPLY PAGES REASONS LEVEL CAPACITY COUNT WHY ROW NAME SERVICE ID
 
 	found=$(/discover.sh)
@@ -173,18 +200,10 @@ scan() {
 		SNMP=""
 		[ -n "${HOST}" ] && SNMP=$(snmp_status "${HOST}")
 
-		if [ -n "$(snmp_value "${SNMP}" "${OID_UPTIME}")" ]; then
-			ONLINE=true
-			PROBLEM=false
-		elif [ "${ADVERTISED}" = "true" ]; then
-			# On the network but not answering: stuck or showing an error.
-			ONLINE=true
-			PROBLEM=true
-		else
-			ONLINE=false
-			PROBLEM=false
-			HOST=""
-		fi
+		ANSWERED=false
+		[ -n "$(snmp_value "${SNMP}" "${OID_UPTIME}")" ] && ANSWERED=true
+		printer_state "${DEVICE}" "${ADVERTISED}" "${ANSWERED}"
+		[ "${ONLINE}" = "true" ] || HOST=""
 
 		JOBS=$(printf '%s' "${jobs_by_queue}" | jq --arg q "${QUEUE}" '.[$q] // 0')
 		MODEL=$(printf '%s' "${found}" | jq -r --arg d "${DEVICE}" '.[] | select(.device == $d) | .name' | head -1)
@@ -194,7 +213,9 @@ scan() {
 		PAGES=null
 		REASONS="[]"
 
-		if [ "${ONLINE}" = "true" ] && [ "${PROBLEM}" = "false" ]; then
+		# Only a printer that answered: another SNMP read of one without an
+		# agent would just wait out its timeout every scan.
+		if [ "${ANSWERED}" = "true" ]; then
 			SUPPLY=$(snmp_value "${SNMP}" "${OID_SUPPLY}")
 			LEVEL=$(snmp_value "${SNMP}" "${OID_LEVEL}")
 			CAPACITY=$(snmp_value "${SNMP}" "${OID_CAPACITY}")

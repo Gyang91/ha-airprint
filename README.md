@@ -57,7 +57,7 @@ Any printer on your network, from any brand, in one of three ways — tried in t
 Not supported:
 
 - **USB-only printers.** The add-on prints over the network; a printer plugged into the Home Assistant machine is not used.
-- **Toner, page count and the reason behind a problem** need SNMP. A printer without it still prints and still reports Online / Offline and its queue.
+- **Toner, page count and the reason behind a problem** need SNMP. A printer without it still prints and reports its queue; it reads **Online** while it is on the network (its Bonjour advert) and **Health** stays `OK`, because there is nothing to tell a problem from.
 
 A printer that does not announce itself on the network (no Bonjour) works too: you are asked for its address when you add it.
 
@@ -101,7 +101,7 @@ Each printer becomes a device in Home Assistant:
 | --- | --- |
 | **Status** | `Ready`, `Printing`, `Out of paper`, `Paper jam`, `Toner low`, `Door open`, `Offline`, `No driver` |
 | **Health** | `OK` / `Problem` — the one to alert on |
-| **Online** | Whether the printer answers on the network (SNMP) |
+| **Online** | Whether the printer answers on the network (SNMP), or for a printer without SNMP, whether it is advertising itself |
 | **Queue** | Jobs waiting |
 | **Toner** | Percentage remaining, with the cartridge name |
 | **Printed** | The printer's lifetime page counter |
