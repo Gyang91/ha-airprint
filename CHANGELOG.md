@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.1](https://github.com/Gyang91/ha-airprint/compare/v1.15.0...v1.15.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* remove power control again, and bring the docs up to date ([a5762b2](https://github.com/Gyang91/ha-airprint/commit/a5762b2d4c74b3b2e22fbd23f36fba225afbc1c9))
+
 ## [1.15.0](https://github.com/Gyang91/ha-airprint/compare/v1.14.4...v1.15.0) (2026-11-04)
 
 
