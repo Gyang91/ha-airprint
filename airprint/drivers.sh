@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-OPTIONS=/data/options.json
-DRIVERS=/share/airprint/drivers
-WORK=/tmp/airprint-drivers
+# Overridable for the tests only.
+OPTIONS=${AIRPRINT_TEST_OPTIONS:-/data/options.json}
+DRIVERS=${AIRPRINT_TEST_DRIVERS:-/share/airprint/drivers}
+WORK=${AIRPRINT_TEST_WORK:-/tmp/airprint-drivers}
 DOWNLOADED="${DRIVERS}/.downloaded"
 
 mkdir -p "${DRIVERS}" "${WORK}"
@@ -14,8 +15,19 @@ WANTED=""
 while read -r url; do
 	[ -n "${url}" ] || continue
 
-	name="${url##*/}"
-	name="${name%%\?*}"
+	path="${url%%[?#]*}"
+	name="${path##*/}"
+
+	# The file is named after the link, so the link must end in a file name.
+	# Nothing starting with "." either: that would hide it (or overwrite
+	# .downloaded). The integration's form checks this too.
+	case "${name}" in
+	"" | .*)
+		echo "[airprint] ignoring driver link ${url}: it must end in the driver's file name"
+		continue
+		;;
+	esac
+
 	file="${DRIVERS}/${name}"
 	WANTED="${WANTED}${name}"$'\n'
 
@@ -23,8 +35,18 @@ while read -r url; do
 		continue
 	fi
 
+	# Installed as root, so an https link must not be redirected to http.
+	# Plain http links still work (saved before the form required https).
+	redirect=(--proto-redir "=https")
+	case "${url}" in
+	http://*)
+		echo "[airprint] warning: ${name} is downloaded over plain http; change the printer's Driver file URL to an https link"
+		redirect=()
+		;;
+	esac
+
 	echo "[airprint] downloading driver ${name}"
-	if ! curl -fsSL -o "${file}.part" "${url}"; then
+	if ! curl -fsSL "${redirect[@]}" -o "${file}.part" "${url}"; then
 		echo "[airprint] could not download ${url}"
 		rm -f "${file}.part"
 		continue

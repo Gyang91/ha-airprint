@@ -2,7 +2,9 @@
 set -uo pipefail
 
 QUEUES=/tmp/airprint-queues
-NOTIFIED=/tmp/airprint-notified
+# Which notifications were sent, kept in /data so a restart (every printer
+# edit restarts the add-on) does not send them again after they were dismissed.
+NOTIFIED=/data/airprint-notified
 STATUS=/srv/status.json
 CORE=http://supervisor/core/api
 
@@ -23,6 +25,22 @@ OID_PAGES=.1.3.6.1.2.1.43.10.2.1.4.1.1
 . /match.sh
 
 touch "${NOTIFIED}"
+
+# "Printer needs a driver" is a repair in the integration now. Remove the
+# notification older versions sent, and stop tracking it.
+sed -i '/^nodriver_/d' "${NOTIFIED}"
+FIRST_SCAN=true
+
+# Logged once per add-on start, not every scan.
+declare -A LOGGED=()
+
+log_once() {
+	local key=$1
+	shift
+	[ -n "${LOGGED[${key}]:-}" ] && return 0
+	LOGGED["${key}"]=1
+	echo "[airprint] $*"
+}
 
 PRINTERS="[]"
 DISCOVERED="[]"
@@ -121,12 +139,24 @@ scan() {
 		LOCATION=${LOCATION:-}
 		DRIVER=${DRIVER:-}
 
+		# The one place queues are created: at start (run.sh only lists the
+		# printers) and whenever a printer that had no driver gets one.
 		if [ -z "${DRIVER}" ]; then
 			IFS="${SEP}" read -r MATCH URI < <(match "${found}" "${DEVICE}" "${QUEUE}")
-			if [ -n "${MATCH}" ] && /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${MATCH}"; then
-				echo "[airprint] ${LABEL}: driver ${MATCH} -> queue created"
+			if [ -z "${MATCH}" ]; then
+				log_once "nodriver_${QUEUE}" "${LABEL}: no driver matched yet - will keep trying"
+			elif /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${MATCH}"; then
+				echo "[airprint] ${LABEL}: driver ${MATCH} -> queue created (${URI})"
 				DRIVER=${MATCH}
+			else
+				log_once "noqueue_${QUEUE}" "${LABEL}: could not create the print queue - will keep trying"
 			fi
+		fi
+
+		# In the background: Home Assistant may not be up yet, and this
+		# must not hold up the first status report.
+		if [ "${FIRST_SCAN}" = "true" ]; then
+			dismiss "nodriver_${QUEUE}" &
 		fi
 
 		row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}.next"
@@ -186,20 +216,6 @@ scan() {
 			--argjson toner "${TONER}" --argjson pages "${PAGES}" --argjson reasons "${REASONS}" \
 			'. + [{id:$id, device:$device, name:$name, model:$model, driver:$driver, host:$host, online:$online, problem:$problem, jobs:$jobs, toner:$toner, supply:$supply, pages:$pages, reasons:$reasons}]')
 
-		if [ -n "${DRIVER}" ]; then
-			if grep -qx "nodriver_${QUEUE}" "${NOTIFIED}"; then
-				sed -i "/^nodriver_${QUEUE}$/d" "${NOTIFIED}"
-				dismiss "nodriver_${QUEUE}"
-			fi
-		elif [ -n "${MODEL}" ]; then
-			if ! grep -qx "nodriver_${QUEUE}" "${NOTIFIED}"; then
-				echo "nodriver_${QUEUE}" >> "${NOTIFIED}"
-				notify "Printer needs a driver" \
-					"**${LABEL}** has no driver, so it cannot print. Add one in the AirPrint add-on's **Drivers** option — see the [README](https://github.com/Gyang91/ha-airprint#drivers)." \
-					"nodriver_${QUEUE}"
-			fi
-		fi
-
 		if [ "${PROBLEM}" = "true" ] && [ "${JOBS}" -gt 0 ]; then
 			if ! grep -qx "stuck_${QUEUE}" "${NOTIFIED}"; then
 				echo "stuck_${QUEUE}" >> "${NOTIFIED}"
@@ -218,6 +234,7 @@ scan() {
 	done < "${QUEUES}"
 
 	mv "${QUEUES}.next" "${QUEUES}"
+	FIRST_SCAN=false
 
 	DISCOVERED="[]"
 

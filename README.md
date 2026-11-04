@@ -15,7 +15,7 @@
 > - **Driverless printing** (IPP Everywhere) for printers no bundled driver matches — [Driverless printing](#driverless-printing)
 > - **Printers that are switched off** most of the time: jobs wait 20 minutes, and the Queue sensor sees a job within ~30 s, so an automation can switch the printer on — [Does my printer need this?](#does-my-printer-need-this)
 > - **Printing over a VPN** — [Printing over a VPN](#printing-over-a-vpn)
-> - **Hardening:** printer control needs authentication, and the add-on restarts itself when a service it depends on stops — [Security](#security)
+> - **Hardening:** printer control needs authentication, nothing probes the printer's print port, and the add-on restarts itself when a service it depends on stops — [Security](#security)
 
 Home Assistant becomes the print server: it advertises your printer over AirPrint, runs the printer's driver, and gives you sensors for toner, page count and whether the thing is out of paper.
 
@@ -73,9 +73,13 @@ https://github.com/Gyang91/ha-airprint
 
 Install **AirPrint** and start it. A prebuilt image is pulled — `amd64` and `aarch64`, nothing is compiled on your machine.
 
-**2. Integration** — add this repository to [HACS](https://hacs.xyz) as an Integration, install **AirPrint**, then restart Home Assistant. (Or copy `custom_components/airprint` into your `config` folder and restart.)
+Turn on **Watchdog** on the add-on's page, so Home Assistant restarts it if its print server stops.
+
+**2. Integration** — on Home Assistant 2026.11 or newer: Settings → **Marketplace** → **Add from link** → enter `Gyang91/ha-airprint` (the Marketplace asks you to connect GitHub the first time), open **AirPrint** and select **Install**. On older versions, add the repository to [HACS](https://hacs.xyz) as an Integration, install **AirPrint**, then restart Home Assistant. (Or copy `custom_components/airprint` into your `config` folder and restart.)
 
 **3. Add your printer** — Home Assistant finds the add-on by itself and shows an **AirPrint** card under Settings → Devices & Services. Click **Add**. Your printer is already filled in:
+
+(If the Marketplace opens the AirPrint setup straight after installing, it asks for the add-on's address instead: keep `127.0.0.1` and port `8099`. Your printer is offered next.)
 
 | Field | |
 | --- | --- |
@@ -104,7 +108,7 @@ Each printer becomes a device in Home Assistant:
 
 Toner, page count and the *reason* behind a problem come from **SNMP** (the standard Printer MIB). Printers that don't expose it don't get those sensors; everything else still works.
 
-You also get a notification when a printer is refusing jobs with work queued behind it — *"Out of paper"* — when a printer turns up on the network that isn't set up yet, and when a printer has no driver and so cannot print.
+You also get a notification when a printer is refusing jobs with work queued behind it — *"Out of paper"* — and when a printer turns up on the network that isn't set up yet (once; dismiss it and it stays dismissed). A printer with no driver, which cannot print, raises a **repair** under Settings → System → Repairs.
 
 ## Drivers
 
@@ -114,13 +118,13 @@ The free driver set is bundled — over 11,000 drivers (Gutenprint, brlaser, foo
 
 **If your printer needs a driver from its manufacturer**, supply it yourself — vendor drivers are proprietary and cannot be shipped with the add-on. Two ways:
 
-**Give Home Assistant a link to it.** If no driver is matched when you add the printer, you are asked for one. Paste a link and it is downloaded, cached and installed — it belongs to that printer, and you can change it later from its **Driver file URL** field.
+**Give Home Assistant a link to it.** If no driver is matched when you add the printer, you are asked for one. Paste a link and it is downloaded, cached and installed — it belongs to that printer. To add, change or remove it later: Settings → Devices & services → AirPrint → **Edit printer** → **Driver file URL**.
 
 Skip it and the printer is still added, but its **Status** reads `No driver` and Home Assistant raises a repair until you supply one.
 
 A `.deb`, a `.ppd` or a vendor `.tar.gz` all work — for a tarball, the packages inside that match your architecture are found and installed. Change the link and the old file is cleaned up.
 
-Any URL works, so **host the driver yourself** if you can. Vendor links are usually version-pinned and break when the vendor ships an update.
+The link must be **https** (the driver is installed with full rights, so it must not be swapped on the way) and end in the file's name: `.deb`, `.ppd`, `.ppd.gz`, `.tar.gz` or `.tgz`. Any such link works, so **host the driver yourself** if you can. Vendor links are usually version-pinned and break when the vendor ships an update. (A plain `http` link saved before this check keeps working; the add-on's log warns about it.)
 
 **Or drop the file in.** Put a `.deb`, `.ppd` or `.tar.gz` into `/share/airprint/drivers` (Home Assistant's *share* folder, reachable with the Samba or File Editor add-on). It is installed on start.
 
@@ -131,7 +135,7 @@ If nothing matches your printer, the add-on says so in its log and skips it, rat
 If no bundled driver matches but the printer speaks IPP raster (it advertises `URF` or `image/pwg-raster` over Bonjour, as every AirPrint printer does), the add-on sets the queue up **driverless** (IPP Everywhere). You need no driver file. The log shows:
 
 ```
-[airprint] HP Laser MFP 131 133 135-138: driver everywhere
+[airprint] 🖨️ HP Laser MFP 131 133 135-138: driver everywhere -> queue created (dnssd://HP%20Laser%20MFP%20131%20133%20135-138._ipp._tcp.local/)
 ```
 
 This covers printers whose vendor driver cannot be installed here, such as the HP Laser MFP 13x: HPLIP does not support it and HP's Samsung-based ULD package has no `.deb`.
@@ -154,7 +158,7 @@ Canon's imageCLASS / i-SENSYS lasers are host-based, and no free driver drives t
 ```
 [airprint] downloading driver linux-UFRII-drv-v630-m17n-10.tar.gz
 [airprint] installing cnrdrvcups-ufr2-uk_6.30-1.10_amd64.deb
-[airprint] Canon MF4800 Series: driver CNRCUPSMF4800ZK.ppd
+[airprint] 🖨️ Canon MF4800 Series: driver CNRCUPSMF4800ZK.ppd -> queue created (dnssd://Canon\032MF4800\032Series._pdl-datastream._tcp.local/)
 ```
 
 The PPD for the MF4800 series is `CNRCUPSMF4800ZK.ppd` — **`CNR`**, not the `CNCUPS…` most guides (and some of Canon's own documentation) will tell you.
@@ -222,9 +226,10 @@ Keep **ForceTLS** on: without it iOS lists no printer from the profile when away
 ## Security
 
 - **Who can print:** your home network (the network Home Assistant is in), plus any network you list under **Networks allowed to print**. Nobody else.
-- **Who can change the printer:** pausing it, making it reject jobs, cancelling other people's jobs and the admin pages need a signed-in administrator. Phones that may print can only print and manage their own jobs.
+- **Who can change the printer:** pausing it, making it reject jobs, cancelling other people's jobs, searching the network for printers and the admin pages need a signed-in administrator. Phones that may print can only print and manage their own jobs.
+- **Nothing pokes the printer's print port.** Some printers (Canon MFPs especially) wake and beep whenever anything connects to port 9100. Status comes from SNMP and the printer is found from its Bonjour advert, so only a real print job connects there.
 - **Nothing is opened to the internet.** For printing away from home, use a VPN ([above](#printing-over-a-vpn)) and open only TCP 631 to Home Assistant in your firewall.
-- **Self-healing:** if Avahi or the print server stops, the add-on stops too and Home Assistant's watchdog restarts it. Its helpers (status feed, monitor) restart on their own, without interrupting printing.
+- **Self-healing:** if Avahi or the print server stops, the add-on stops too, and Home Assistant restarts it if **Watchdog** is on (the add-on's page; turn it on when you install). Its helpers (status feed, monitor) restart on their own, without interrupting printing.
 - The image is scanned for vulnerabilities on every change and weekly. CUPS issues without a fix in Debian yet are tracked in [CLAUDE.md](CLAUDE.md#security-scanning). They need a PostScript or Foomatic queue and an attacker already on your network; a driverless queue is neither.
 
 ## Icons
