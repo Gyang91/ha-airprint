@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.8](https://github.com/Gyang91/ha-airprint/compare/v1.13.7...v1.13.8) (2026-11-04)
+
+
+### Bug Fixes
+
+* an empty location no longer shifts the driver into it ([2cca5e5](https://github.com/Gyang91/ha-airprint/commit/2cca5e5ff5e6d78b08c9f8ad7a0f34ba01eb0f36))
+
 ## [1.13.7](https://github.com/Gyang91/ha-airprint/compare/v1.13.6...v1.13.7) (2026-11-04)
 
 
