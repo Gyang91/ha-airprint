@@ -1,0 +1,2 @@
+# The integration tests run against this Home Assistant (it pins the version).
+pytest-homeassistant-custom-component==0.13.375

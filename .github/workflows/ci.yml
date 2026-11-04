@@ -29,13 +29,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: They must parse
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck bats
+
+      - name: They must parse and pass shellcheck
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
           for script in airprint/*.sh scripts/*.sh; do
             bash -n "${script}"
-            shellcheck -S warning "${script}" || true
           done
+          shellcheck -S warning airprint/*.sh scripts/*.sh
+
+      - name: Tests
+        run: bats tests/addon
 
   addon:
     name: Add-on (${{ matrix.arch }})
@@ -61,8 +65,19 @@ jobs:
           context: airprint
           platforms: ${{ matrix.platform }}
           push: false
+          load: true
+          tags: airprint:test
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,scope=${{ matrix.arch }},mode=max
+
+      # The snmp backend's discovery opens 9100 and wakes printers (CLAUDE.md).
+      - name: No snmp backend, and cupsd accepts the configuration
+        run: |
+          docker run --rm --entrypoint sh airprint:test -c '
+            if [ -e /usr/lib/cups/backend/snmp ]; then
+              echo "::error::the CUPS snmp backend is in the image"; exit 1
+            fi
+            cupsd -t -c /usr/share/airprint/cupsd.conf -s /etc/cups/cups-files.conf'
 
   integration:
     name: Integration
@@ -76,6 +91,11 @@ jobs:
 
       - name: It must compile
         run: python -m compileall -q custom_components/airprint
+
+      - name: Tests
+        run: |
+          pip install -q -r requirements_test.txt
+          pytest
 
       - uses: home-assistant/actions/hassfest@master
 
