@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.0](https://github.com/Gyang91/ha-airprint/compare/v1.14.4...v1.15.0) (2026-11-04)
+
+
+### Features
+
+* fix "needs a driver" from the repair itself ([82853d4](https://github.com/Gyang91/ha-airprint/commit/82853d4295d6aeb6bcdb444b5a739f6605a8106b))
+* switch the printer on for a print job, and off again when idle ([01c98d2](https://github.com/Gyang91/ha-airprint/commit/01c98d2edbf9872c997b2f330ba6fec60232b34e))
+
 ## [1.14.4](https://github.com/Gyang91/ha-airprint/compare/v1.14.3...v1.14.4) (2026-11-04)
 
 
