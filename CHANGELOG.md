@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.5](https://github.com/Gyang91/ha-airprint/compare/v1.13.4...v1.13.5) (2026-11-04)
+
+
+### Performance
+
+* see print jobs within 30 s and restart when a service dies ([294a40b](https://github.com/Gyang91/ha-airprint/commit/294a40bd11f091676f852a2c3be530de8cc18eee))
+
 ## [1.13.4](https://github.com/Gyang91/ha-airprint/compare/v1.13.3...v1.13.4) (2026-11-04)
 
 
