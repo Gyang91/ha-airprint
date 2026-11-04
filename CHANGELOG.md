@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.7](https://github.com/Gyang91/ha-airprint/compare/v1.13.6...v1.13.7) (2026-11-04)
+
+
+### Bug Fixes
+
+* a helper bug never takes printing down; quieter log, fewer writes ([c7f20ce](https://github.com/Gyang91/ha-airprint/commit/c7f20ce1782b98dafd4500649cfb4848bc2d8db7))
+
 ## [1.13.6](https://github.com/Gyang91/ha-airprint/compare/v1.13.5...v1.13.6) (2026-11-04)
 
 
