@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.6](https://github.com/Gyang91/ha-airprint/compare/v1.13.5...v1.13.6) (2026-11-04)
+
+
+### Bug Fixes
+
+* a sleeping printer that misses one mDNS browse stays Online ([92d28f5](https://github.com/Gyang91/ha-airprint/commit/92d28f55966ac3db9d75ccd2587283887f2b1a68))
+
 ## [1.13.5](https://github.com/Gyang91/ha-airprint/compare/v1.13.4...v1.13.5) (2026-11-04)
 
 
