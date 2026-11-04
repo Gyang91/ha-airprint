@@ -2,9 +2,16 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# No snmp backend: its device discovery opens 9100 on every printer it finds,
+# which wakes some printers (see CLAUDE.md). Nothing prints through snmp://;
+# the monitor reads printer status with snmpget, not this backend. The debconf
+# answer keeps a later reconfigure of cups (a vendor .deb pulling in packages)
+# from putting it back.
+#
 # upgrade: the base image can lag behind Debian's security updates; every
 # build takes the current ones (see the Security workflow).
-RUN apt-get update \
+RUN echo "cups cupsys/backend multiselect lpd, socket, usb, dnssd" | debconf-set-selections \
+ && apt-get update \
  && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends \
       avahi-daemon \
@@ -32,7 +39,8 @@ RUN apt-get update \
       libjbig0 \
       libgcrypt20 \
       lsb-release \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -f /usr/lib/cups/backend/snmp
 
 COPY cupsd.conf /etc/cups/cupsd.conf
 COPY cupsd.conf /usr/share/airprint/cupsd.conf

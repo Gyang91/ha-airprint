@@ -76,17 +76,18 @@ avahi-daemon --no-chroot --syslog &
 SERVICES+=($!)
 wait_for avahi-daemon --check
 
+cups_ready() {
+	for _ in $(seq 1 60); do
+		lpstat -r 2>/dev/null | grep -q "is running" && return 0
+		sleep 1
+	done
+	return 1
+}
+
 cupsd -f &
 SERVICES+=($!)
 
-for _ in $(seq 1 60); do
-	if lpstat -r 2>/dev/null | grep -q "is running"; then
-		break
-	fi
-	sleep 1
-done
-
-if ! lpstat -r 2>/dev/null | grep -q "is running"; then
+if ! cups_ready; then
 	echo "[airprint] cupsd failed to start"
 	exit 1
 fi
@@ -100,7 +101,8 @@ if [ "${COUNT}" -eq 0 ]; then
 	echo "[airprint] no printers configured yet — add one in Home Assistant"
 fi
 
-FOUND=$(/discover.sh)
+# Only needed for a printer stored without its identity (the first one found).
+FOUND=""
 
 for i in $(seq 0 $((COUNT - 1))); do
 	NAME=$(jq -r ".printers[${i}].name" "${OPTIONS}")
@@ -122,6 +124,7 @@ for i in $(seq 0 $((COUNT - 1))); do
 	done
 
 	if [ -z "${DEVICE}" ]; then
+		[ -n "${FOUND}" ] || FOUND=$(/discover.sh)
 		DEVICE=$(printf '%s' "${FOUND}" | jq -r '.[0].device // ""')
 	elif ! printf '%s' "${DEVICE}" | grep -q '://'; then
 		DEVICE="socket://${DEVICE}"
@@ -132,33 +135,21 @@ for i in $(seq 0 $((COUNT - 1))); do
 		continue
 	fi
 
-	IFS="${SEP}" read -r DRIVER URI < <(match "${FOUND}" "${DEVICE}" "${QUEUE}")
-
 	if [ -z "${PRINTER_ICON}" ]; then
 		LABEL="${NAME}"
 	else
 		LABEL="${PRINTER_ICON} ${NAME}"
 	fi
 
-	if [ -z "${DRIVER}" ]; then
-		echo "[airprint] ${NAME}: no driver matched yet - will keep trying"
-		row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
-		continue
-	fi
-
-	echo "[airprint] ${NAME}: driver ${DRIVER}"
-
-	if ! /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${DRIVER}"; then
-		echo "[airprint] ${NAME}: could not create the print queue - will keep trying"
-		row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
-		continue
-	fi
-
-	row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}"
-	echo "[airprint] ${LABEL} -> ${URI}"
+	# No driver yet: the monitor's first scan, right below, matches one and
+	# creates the queue (and keeps retrying until it can).
+	row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
 done
 
+# cupsctl rewrites cupsd.conf and cupsd restarts itself: let it settle, or
+# the first queue the monitor creates can fail.
 cupsctl --share-printers
+cups_ready || echo "[airprint] cupsd is slow to restart - the monitor will retry"
 
 keep_running /monitor.sh &
 keep_running python3 -m http.server 8099 --directory /srv --bind 0.0.0.0 >/dev/null 2>&1 &
