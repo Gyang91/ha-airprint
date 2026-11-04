@@ -5,6 +5,9 @@ OPTIONS=/data/options.json
 QUEUES=/tmp/airprint-queues
 STATUS_DIR=/srv
 
+# shellcheck source=match.sh
+. /match.sh
+
 /drivers.sh
 
 pkill -x cupsd 2>/dev/null && sleep 2
@@ -80,7 +83,7 @@ for i in $(seq 0 $((COUNT - 1))); do
 		continue
 	fi
 
-	DRIVER=$(printf '%s' "${FOUND}" | jq -r --arg d "${DEVICE}" '.[] | select(.device == $d) | .driver // ""' | head -1)
+	IFS=$'\t' read -r DRIVER URI < <(match "${FOUND}" "${DEVICE}" "${QUEUE}")
 
 	if [ -z "${PRINTER_ICON}" ]; then
 		LABEL="${NAME}"
@@ -96,14 +99,14 @@ for i in $(seq 0 $((COUNT - 1))); do
 
 	echo "[airprint] ${NAME}: driver ${DRIVER}"
 
-	if ! /queue.sh "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}"; then
+	if ! /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${DRIVER}"; then
 		echo "[airprint] ${NAME}: could not create the print queue - will keep trying"
 		printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
 		continue
 	fi
 
 	printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}"
-	echo "[airprint] ${LABEL} -> ${DEVICE}"
+	echo "[airprint] ${LABEL} -> ${URI}"
 done
 
 cupsctl --share-printers

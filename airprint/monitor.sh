@@ -7,6 +7,9 @@ STATUS=/srv/status.json
 CORE=http://supervisor/core/api
 INTERVAL=60
 
+# shellcheck source=match.sh
+. /match.sh
+
 touch "${NOTIFIED}"
 
 notify() {
@@ -57,9 +60,12 @@ error_reasons() {
 resolve() {
 	case "$1" in
 	dnssd://*)
-		local service=${1#dnssd://}
+		# dnssd://<name>.<_type>._tcp.local/ - browse that service type (_pdl-datastream or _ipp)
+		local service=${1#dnssd://} type
+		type=${service#*._}
+		type="_${type%%._tcp*}._tcp"
 		service=${service%%._*}
-		timeout 6 avahi-browse -rtp _pdl-datastream._tcp 2>/dev/null |
+		timeout 6 avahi-browse -rtp "${type}" 2>/dev/null |
 			awk -F';' -v name="${service}" '$1 == "=" && $3 == "IPv4" && $4 == name { print $8 "\t" $9; exit }'
 		;;
 	socket://*)
@@ -86,8 +92,8 @@ while true; do
 		DRIVER=${DRIVER:-}
 
 		if [ -z "${DRIVER}" ]; then
-			MATCH=$(printf '%s' "${FOUND}" | jq -r --arg d "${DEVICE}" '.[] | select(.device == $d) | .driver // ""' | head -1)
-			if [ -n "${MATCH}" ] && /queue.sh "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${MATCH}"; then
+			IFS=$'\t' read -r MATCH URI < <(match "${FOUND}" "${DEVICE}" "${QUEUE}")
+			if [ -n "${MATCH}" ] && /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${MATCH}"; then
 				echo "[airprint] ${LABEL}: driver ${MATCH} -> queue created"
 				DRIVER=${MATCH}
 			fi
@@ -148,7 +154,7 @@ while true; do
 			if ! grep -qx "nodriver_${QUEUE}" "${NOTIFIED}"; then
 				echo "nodriver_${QUEUE}" >> "${NOTIFIED}"
 				notify "Printer needs a driver" \
-					"**${LABEL}** has no driver, so it cannot print. Add one in the AirPrint add-on's **Drivers** option — see the [README](https://github.com/aaronfagan/ha-airprint#drivers)." \
+					"**${LABEL}** has no driver, so it cannot print. Add one in the AirPrint add-on's **Drivers** option — see the [README](https://github.com/Gyang91/ha-airprint#drivers)." \
 					"nodriver_${QUEUE}"
 			fi
 		fi

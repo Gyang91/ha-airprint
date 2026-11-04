@@ -10,6 +10,8 @@
 
 ---
 
+> This is a fork of [aaronfagan/ha-airprint](https://github.com/aaronfagan/ha-airprint). It adds **driverless printing (IPP Everywhere)** for printers that no bundled driver matches, see [Driverless printing](#driverless-printing).
+
 Home Assistant becomes the print server: it advertises your printer over AirPrint, runs the printer's driver, and gives you sensors for toner, page count and whether the thing is out of paper.
 
 It works with printers that have **no AirPrint support at all** — including host-based printers that speak no IPP, no PostScript and no PCL, and cannot otherwise be printed to from a phone or tablet.
@@ -20,6 +22,8 @@ If your printer already does AirPrint, you don't need this — print to it direc
 
 If it doesn't, and you have been keeping a computer switched on so that everyone can print, this replaces it. Any printer reachable on your network over **port 9100 (socket) or 515 (LPD)** will work.
 
+It also helps with an AirPrint printer that is **switched off** most of the time (on a smart plug, say). Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway. A job waits in the **Queue** until the printer is back, and an automation on that sensor can switch the printer on.
+
 ## Install
 
 Two pieces: an **add-on** (the print server) and an **integration** (the setup screens and the sensors).
@@ -27,7 +31,7 @@ Two pieces: an **add-on** (the print server) and an **integration** (the setup s
 **1. Add-on** — Settings → Add-ons → Add-on Store → ⋮ → **Repositories** → add:
 
 ```
-https://github.com/aaronfagan/ha-airprint
+https://github.com/Gyang91/ha-airprint
 ```
 
 Install **AirPrint** and start it. A prebuilt image is pulled — `amd64` and `aarch64`, nothing is compiled on your machine.
@@ -85,6 +89,20 @@ Any URL works, so **host the driver yourself** if you can. Vendor links are usua
 
 If nothing matches your printer, the add-on says so in its log and skips it, rather than setting up a queue that cannot print.
 
+### Driverless printing
+
+If no bundled driver matches but the printer speaks IPP raster (it advertises `URF` or `image/pwg-raster` over Bonjour, as every AirPrint printer does), the add-on sets the queue up **driverless** (IPP Everywhere). You need no driver file. The log shows:
+
+```
+[airprint] HP Laser MFP 131 133 135-138: driver everywhere
+```
+
+This covers printers whose vendor driver cannot be installed here, such as the HP Laser MFP 13x: HPLIP does not support it and HP's Samsung-based ULD package has no `.deb`.
+
+The driverless driver is built by asking the printer itself, so **the printer must be on once** when you add it. The add-on then keeps that driver in its config folder (`/addon_configs/<slug>/driverless/`) and rebuilds the queue from it after a restart, even if the printer is off by then. Jobs wait in the queue until the printer is back.
+
+A printer that a bundled driver matches keeps that driver; driverless is only the fallback.
+
 <details>
 <summary><b>Example: a host-based Canon laser</b></summary>
 
@@ -114,6 +132,8 @@ The print queue holds the printer's Bonjour name, not its IP address:
 dnssd://PRINTER._pdl-datastream._tcp.local/
 ```
 
+A driverless queue prints over IPP instead, with the same kind of name: `dnssd://PRINTER._ipp._tcp.local/`.
+
 CUPS resolves it to an address **at the moment you print** — the same *"Looking for printer…"* step a laptop does. The printer's IP can change and it is simply found again: nothing to reconfigure, no address to keep in sync.
 
 If it cannot be found, the printer reports **Offline** and the job fails at the device.
@@ -141,6 +161,7 @@ Desktop clients *do* fetch the icon image, and the add-on serves one automatical
 - **CUPS 3.x** drops the classic driver model that proprietary vendor drivers rely on. The add-on is pinned to Debian bookworm (CUPS 2.4). Not urgent, but worth knowing.
 
 ## Additional Information
+- Original project: [aaronfagan/ha-airprint](https://github.com/aaronfagan/ha-airprint)
 - [Blog Article](https://www.aaronfagan.ca/blog/2026/airprint-for-home-assistant/)
 
 ## Licence
