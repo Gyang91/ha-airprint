@@ -100,3 +100,31 @@ async def test_unload(hass, feed, addon):
     await hass.async_block_till_done()
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert entry.state.name == "NOT_LOADED"
+
+
+async def test_printers_imported_once_from_the_addon(hass, feed, addon):
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    # An install from before the integration owned the printer list.
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=DOMAIN, data={"host": "192.168.1.100", "port": 8099})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    (subentry,) = entry.subentries.values()
+    assert subentry.data["name"] == "HP Laser"
+    assert entry.data["imported"] is True
+
+    # Removing the last printer keeps it removed (it used to be re-imported).
+    hass.config_entries.async_remove_subentry(entry, subentry.subentry_id)
+    await hass.async_block_till_done()
+    assert not entry.subentries
+    assert addon.options["printers"] == []
+
+
+async def test_existing_install_is_marked_imported(hass, feed, addon):
+    entry = entry_with_printer()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.data["imported"] is True
+    assert len(entry.subentries) == 1

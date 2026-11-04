@@ -120,7 +120,7 @@ The free driver set is bundled — over 11,000 drivers (Gutenprint, brlaser, foo
 
 **Give Home Assistant a link to it.** If no driver is matched when you add the printer, you are asked for one. Paste a link and it is downloaded, cached and installed — it belongs to that printer. To add, change or remove it later: Settings → Devices & services → AirPrint → **Edit printer** → **Driver file URL**.
 
-Skip it and the printer is still added, but its **Status** reads `No driver` and Home Assistant raises a repair until you supply one.
+Skip it and the printer is still added, but its **Status** reads `No driver` and Home Assistant raises a repair until you supply one. Select **Fix** on the repair (Settings → System → Repairs) and paste the link there.
 
 A `.deb`, a `.ppd` or a vendor `.tar.gz` all work — for a tarball, the packages inside that match your architecture are found and installed. Change the link and the old file is cleaned up.
 
