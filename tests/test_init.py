@@ -128,3 +128,30 @@ async def test_existing_install_is_marked_imported(hass, feed, addon):
     await hass.async_block_till_done()
     assert entry.data["imported"] is True
     assert len(entry.subentries) == 1
+
+
+async def test_power_switch_wakes_the_printer(hass, aioclient_mock, status, addon):
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    status["printers"][0].update(online=False, jobs=1)
+    aioclient_mock.get(URL, json=status)
+    hass.states.async_set("switch.printer_plug", "off")
+    calls = async_mock_service(hass, "switch", "turn_on")
+
+    entry = entry_with_printer()
+    (subentry,) = entry.subentries.values()
+    entry = type(entry)(
+        domain=DOMAIN, unique_id=DOMAIN, title="AirPrint", data=dict(entry.data),
+        subentries_data=[{
+            "data": {**subentry.data, "power_switch": "switch.printer_plug"},
+            "subentry_type": "printer", "title": subentry.title, "unique_id": subentry.unique_id,
+        }],
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert calls[0].data == {"entity_id": "switch.printer_plug"}
+    # The power settings stay in Home Assistant: the add-on is not told.
+    assert "power_switch" not in addon.options["printers"][0]

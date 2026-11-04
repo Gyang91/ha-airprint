@@ -13,7 +13,7 @@
 > This is a fork of [aaronfagan/ha-airprint](https://github.com/aaronfagan/ha-airprint). It adds:
 >
 > - **Driverless printing** (IPP Everywhere) for printers no bundled driver matches — [Driverless printing](#driverless-printing)
-> - **Printers that are switched off** most of the time: jobs wait 20 minutes, and the Queue sensor sees a job within ~30 s, so an automation can switch the printer on — [Does my printer need this?](#does-my-printer-need-this)
+> - **Printers that are switched off** most of the time: a job switches the printer on (smart plug or a button presser such as a SwitchBot Bot) and it is switched off again when idle — [Switching the printer on and off](#switching-the-printer-on-and-off)
 > - **Printing over a VPN** — [Printing over a VPN](#printing-over-a-vpn)
 > - **Hardening:** printer control needs authentication, nothing probes the printer's print port, and the add-on restarts itself when a service it depends on stops — [Security](#security)
 
@@ -27,22 +27,7 @@ If your printer already does AirPrint, you don't need this — print to it direc
 
 If it doesn't, and you have been keeping a computer switched on so that everyone can print, this replaces it. Any printer reachable on your network over **port 9100 (socket) or 515 (LPD)** will work.
 
-It also helps with an AirPrint printer that is **switched off** most of the time (on a smart plug, say). Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway. A job waits in the **Queue** (up to 20 minutes) until the printer is back. The Queue sensor sees a new job within about 30 seconds, so an automation on it can switch the printer on:
-
-```yaml
-triggers:
-  - trigger: numeric_state
-    entity_id: sensor.my_printer_queue
-    above: 0
-conditions:
-  - condition: state
-    entity_id: switch.printer_plug
-    state: "off"
-actions:
-  - action: switch.turn_on
-    target:
-      entity_id: switch.printer_plug
-```
+It also helps with an AirPrint printer that is **switched off** most of the time. Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway, a job waits (up to 20 minutes) until the printer is back, and Home Assistant can switch the printer on for it — see [Switching the printer on and off](#switching-the-printer-on-and-off).
 
 ## Which printers work
 
@@ -86,6 +71,8 @@ Turn on **Watchdog** on the add-on's page, so Home Assistant restarts it if its 
 | **Name** | Pre-filled with the printer's make and model. This is the name shown in the print dialogue. Clear it to go back to the make and model. |
 | **Location** | Optional. Shown under the name when printing. |
 | **Icon** | Optional. An emoji shown in front of the name — see [Icons](#icons). |
+| **Power switch** | Optional. What switches the printer on — see [Switching the printer on and off](#switching-the-printer-on-and-off). |
+| **Switch off after** | Minutes without print jobs before it is switched off again (default 15; 0 leaves it on). |
 
 There is no IP address to type. The printer is found on the network, and stays found even if its address changes — see [How it finds your printer](#how-it-finds-your-printer).
 
@@ -109,6 +96,17 @@ Each printer becomes a device in Home Assistant:
 Toner, page count and the *reason* behind a problem come from **SNMP** (the standard Printer MIB). Printers that don't expose it don't get those sensors; everything else still works.
 
 You also get a notification when a printer is refusing jobs with work queued behind it — *"Out of paper"* — and when a printer turns up on the network that isn't set up yet (once; dismiss it and it stays dismissed). A printer with no driver, which cannot print, raises a **repair** under Settings → System → Repairs.
+
+## Switching the printer on and off
+
+For a printer that is off most of the time, pick what switches it on in its **Power switch** field (when adding it, or later under **Edit printer**):
+
+- **A smart plug** (any `switch` entity). When a job is waiting and the plug is off, it is switched on.
+- **A button presser** such as a SwitchBot Bot or a fingerbot, pressing the printer's power button (a `button` entity, or a `switch` in press mode). Each press toggles the printer, so it is only pressed while the printer reads **Offline**, and not again while it is starting up (it waits 5 minutes, and gives up after two tries).
+
+A job reaches Home Assistant within about 30 seconds, and waits in the queue until the printer has started.
+
+After **Switch off after** minutes without a job, the printer is switched off again — but only if Home Assistant switched it on for a print job. A printer you switched on yourself, to copy or scan, is left on. A presser is only pressed to switch off while the printer reads **Online** (it may already have gone into standby by itself), so this needs a printer that answers SNMP.
 
 ## Drivers
 

@@ -11,6 +11,7 @@ from homeassistant.helpers import issue_registry as ir
 
 from .const import DOMAIN, SUBENTRY, device_name, label
 from .coordinator import AirPrintCoordinator
+from .power import PrinterPower
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -121,6 +122,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: AirPrintConfigEntry) -> 
 
     _check()
     entry.async_on_unload(coordinator.async_add_listener(_check))
+
+    powers = [
+        power
+        for subentry in entry.subentries.values()
+        if (power := PrinterPower(hass, dict(subentry.data))).enabled
+    ]
+
+    @callback
+    def _power() -> None:
+        if not coordinator.last_update_success:
+            return
+        for power in powers:
+            power.async_update(coordinator.data.get(power.device))
+
+    if powers:
+        entry.async_on_unload(coordinator.async_add_listener(_power))
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     # Still a boolean: Home Assistant before 2026.11 reads None as a failure.
