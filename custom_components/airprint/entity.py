@@ -16,6 +16,7 @@ class AirPrintEntity(CoordinatorEntity[AirPrintCoordinator]):
         self._model = printer.get("discovered_name") or self._name
         self._device = printer.get("device", "")
         self._attr_unique_id = f"{device_id(self._device)}_{key}"
+        self._attr_translation_key = key
 
     @property
     def printer(self) -> dict:

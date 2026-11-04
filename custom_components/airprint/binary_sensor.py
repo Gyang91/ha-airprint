@@ -4,18 +4,17 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from . import AirPrintConfigEntry
 from .entity import AirPrintEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: AirPrintConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     for subentry_id, subentry in entry.subentries.items():
         printer = dict(subentry.data)
@@ -29,7 +28,6 @@ async def async_setup_entry(
 
 
 class AirPrintOnline(AirPrintEntity, BinarySensorEntity):
-    _attr_name = "Online"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
     def __init__(self, coordinator, printer: dict) -> None:
@@ -41,7 +39,6 @@ class AirPrintOnline(AirPrintEntity, BinarySensorEntity):
 
 
 class AirPrintProblem(AirPrintEntity, BinarySensorEntity):
-    _attr_name = "Health"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
     def __init__(self, coordinator, printer: dict) -> None:

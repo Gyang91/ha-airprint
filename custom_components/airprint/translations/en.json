@@ -20,7 +20,7 @@
       },
       "user": {
         "title": "AirPrint",
-        "description": "Enter the address of the machine running the AirPrint add-on.",
+        "description": "Enter the address of the machine running the AirPrint add-on. If it runs on this Home Assistant, keep 127.0.0.1.",
         "data": {
           "host": "Host",
           "port": "Port"
@@ -28,7 +28,7 @@
       },
       "driver": {
         "title": "{name} needs a driver",
-        "description": "No driver for **{name}** is available, so it cannot print yet.\n\nMost printers are matched automatically; yours needs one from its manufacturer. Paste a link to the driver — a `.deb`, a `.ppd`, or the vendor's `.tar.gz`.\n\nYou can leave this empty and add it later in the add-on's Drivers option.",
+        "description": "No driver for **{name}** is available, so it cannot print yet.\n\nMost printers are matched automatically; yours needs one from its manufacturer. Paste a link to the driver — a `.deb`, a `.ppd`, or the vendor's `.tar.gz`.\n\nYou can leave this empty and add it later: open the printer under Settings → Devices & services → AirPrint, choose **Edit printer** and paste the link into **Driver file URL**.",
         "data": {
           "driver": "Driver file URL"
         },
@@ -39,6 +39,10 @@
     },
     "abort": {
       "already_configured": "AirPrint is already set up."
+    },
+    "error": {
+      "driver_https": "Use an https:// link. The driver is installed with full rights, so it must not be downloaded over plain http.",
+      "driver_file": "Link to the driver file itself: the link must end in .deb, .ppd, .ppd.gz, .tar.gz or .tgz."
     }
   },
   "config_subentries": {
@@ -85,7 +89,7 @@
         },
         "driver": {
           "title": "{name} needs a driver",
-          "description": "No driver for **{name}** is available, so it cannot print yet.\n\nMost printers are matched automatically; yours needs one from its manufacturer. Paste a link to the driver — a `.deb`, a `.ppd`, or the vendor's `.tar.gz`.\n\nYou can leave this empty and add it later in the add-on's Drivers option.",
+          "description": "No driver for **{name}** is available, so it cannot print yet.\n\nMost printers are matched automatically; yours needs one from its manufacturer. Paste a link to the driver — a `.deb`, a `.ppd`, or the vendor's `.tar.gz`.\n\nYou can leave this empty and add it later: open the printer under Settings → Devices & services → AirPrint, choose **Edit printer** and paste the link into **Driver file URL**.",
           "data": {
             "driver": "Driver file URL"
           },
@@ -99,14 +103,39 @@
         "already_configured": "That printer is already set up."
       },
       "error": {
-        "driver_failed": "Could not add the driver to the add-on."
+        "driver_https": "Use an https:// link. The driver is installed with full rights, so it must not be downloaded over plain http.",
+        "driver_file": "Link to the driver file itself: the link must end in .deb, .ppd, .ppd.gz, .tar.gz or .tgz."
       }
     }
   },
   "issues": {
     "no_driver": {
       "title": "{name} needs a driver",
-      "description": "Home Assistant has no driver for **{name}**, so it cannot print.\n\nMost printers are matched automatically. Yours needs a driver from its manufacturer: add it to the **Drivers** option of the AirPrint add-on, then restart the add-on."
+      "description": "Home Assistant has no driver for **{name}**, so it cannot print.\n\nMost printers are matched automatically. Yours needs a driver from its manufacturer: open the printer under Settings → Devices & services → AirPrint, choose **Edit printer** and paste a link to the driver into **Driver file URL**. The add-on restarts and installs it."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "Online"
+      },
+      "problem": {
+        "name": "Health"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status"
+      },
+      "jobs": {
+        "name": "Queue"
+      },
+      "toner": {
+        "name": "Toner"
+      },
+      "pages": {
+        "name": "Printed"
+      }
     }
   }
 }

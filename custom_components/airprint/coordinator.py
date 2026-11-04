@@ -1,17 +1,28 @@
 from __future__ import annotations
 
 import logging
-import os
 from datetime import timedelta
+from typing import Any
 
 import aiohttp
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.hassio import is_hassio
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SUPERVISOR, UPDATE_INTERVAL
+from .const import ADDON_NAME, DOMAIN, UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_fetch_status(hass: HomeAssistant, host: str, port: int) -> dict[str, Any]:
+    """Read the add-on's status feed (/status.json). Raises on any failure."""
+    session = async_get_clientsession(hass)
+    async with session.get(
+        f"http://{host}:{port}/status.json", timeout=aiohttp.ClientTimeout(total=15)
+    ) as response:
+        response.raise_for_status()
+        return await response.json(content_type=None)
 
 
 class AirPrintCoordinator(DataUpdateCoordinator):
@@ -22,18 +33,14 @@ class AirPrintCoordinator(DataUpdateCoordinator):
             name=DOMAIN,
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
-        self._url = f"http://{host}:{port}/status.json"
-        self._session = async_get_clientsession(hass)
+        self._host = host
+        self._port = port
         self.slug: str | None = None
-        self.discovered: list[str] = []
+        self.discovered: list[dict] = []
 
     async def _async_update_data(self) -> dict:
         try:
-            async with self._session.get(
-                self._url, timeout=aiohttp.ClientTimeout(total=15)
-            ) as response:
-                response.raise_for_status()
-                data = await response.json(content_type=None)
+            data = await async_fetch_status(self.hass, self._host, self._port)
         except Exception as err:
             raise UpdateFailed(f"Cannot reach the AirPrint add-on: {err}") from err
 
@@ -42,26 +49,20 @@ class AirPrintCoordinator(DataUpdateCoordinator):
 
         return {printer["device"]: printer for printer in data.get("printers", [])}
 
-    async def _supervisor(self, method: str, path: str, json: dict | None = None) -> dict:
-        token = os.environ.get("SUPERVISOR_TOKEN")
-        if not token:
+    def _addon(self):
+        if not is_hassio(self.hass):
             raise RuntimeError("Not running under the Home Assistant Supervisor")
 
-        async with self._session.request(
-            method,
-            f"{SUPERVISOR}/{path}",
-            headers={"Authorization": f"Bearer {token}"},
-            json=json,
-            timeout=aiohttp.ClientTimeout(total=60),
-        ) as response:
-            response.raise_for_status()
-            return await response.json()
+        # Imported here: the hassio component only exists under the Supervisor.
+        from homeassistant.components.hassio import AddonManager
+
+        return AddonManager(self.hass, _LOGGER, ADDON_NAME, self.slug)
 
     async def async_get_options(self) -> dict:
         if not self.slug:
             return {}
-        info = await self._supervisor("GET", f"addons/{self.slug}/info")
-        return info.get("data", {}).get("options", {}) or {}
+        info = await self._addon().async_get_addon_info()
+        return dict(info.options or {})
 
     async def async_get_printers(self) -> list[dict]:
         return (await self.async_get_options()).get("printers", [])
@@ -73,5 +74,6 @@ class AirPrintCoordinator(DataUpdateCoordinator):
         options = await self.async_get_options()
         options["printers"] = printers
 
-        await self._supervisor("POST", f"addons/{self.slug}/options", {"options": options})
-        await self._supervisor("POST", f"addons/{self.slug}/restart")
+        addon = self._addon()
+        await addon.async_set_addon_options(options)
+        await addon.async_restart_addon()
