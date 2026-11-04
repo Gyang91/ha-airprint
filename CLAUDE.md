@@ -18,7 +18,6 @@ The split was arrived at the hard way; do not relitigate it. An add-on's options
 - **Discovery is passive mDNS.** `discover.sh` reads the printer's `_pdl-datastream._tcp` advert (model and device-id come from its TXT record: `usb_MFG` / `usb_MDL` / `ty` / `product`) and matches a driver from the local PPD database (`lpinfo -m`). It must **never** run CUPS device discovery (`lpinfo -v`) on a timer, for the reason below.
 - **Status is SNMP, never the print port.** Liveness is an SNMP `sysUpTime` read (UDP 161, the management plane). Health is the `hrPrinterDetectedErrorState` bitmask (0x40 out of paper, 0x04 jam, 0x08 door open, 0x20 toner low, etc.). Toner and page count are SNMP too. In `status.json`, `problem` is only TCP reachability and `reasons` is only the SNMP decode; the integration ORs them (plus no-driver) for the Health entity, so `"problem": false` alongside `"reasons": ["Out of paper"]` is correct.
 - **NEVER open the printer's raw print port (9100/515) on a timer.** Many printers (Canon MFPs especially) treat any TCP connection to 9100 as an incoming job and audibly wake. This caused a once-a-minute "phantom beep" that took two passes to kill: first `monitor.sh`'s own `port_open` liveness probe, then the CUPS **snmp backend** that `lpinfo -v` invokes during discovery (after finding the printer over SNMP it opens 9100 to read the IEEE-1284 device-id via PJL). Use SNMP or IPP Get-Printer-Attributes for liveness and passive mDNS for discovery. Nothing should touch 9100 except a real print job. A 9100 SYN with `UID=7` (lp) fingerprints a CUPS backend, not `monitor.sh` (root).
-- **Power control is in the integration** (`power.py`), not the add-on: it needs Home Assistant entities. `power_switch` / `power_off_after` stay in the subentry and are never written into the add-on's options (`_printer()` picks the add-on's keys). A presser (a `button`, or a `switch` with `assumed_state`, like a SwitchBot Bot) toggles the printer, so it is driven by the printer's Online state, never by the switch's state: wake only while offline, wait 5 min, at most two tries. Only a printer it switched on is switched off again.
 - **Identity is the Bonjour name.** The queue's device URI is `dnssd://<service>._pdl-datastream._tcp.local/`; CUPS' dnssd backend resolves it to an address at job time, so no IP is stored and the printer's IP can change freely.
 
 ## Testing on the Home Assistant box
@@ -140,6 +139,15 @@ Tested on 2026.10.4 and 2026.11.0b5.
 - `async_setup_entry` and `async_unload_entry` still return `True`: 2026.11 wants `None` (and ignores a boolean from a custom integration), but before 2026.11 `None` means the setup failed. Switch once 2026.11 is the minimum.
 - A repair is tied to its config entry (`config_entry_id`) only where `ir.async_create_issue` takes it (2026.11); `__init__.py` checks the signature.
 - 2026.11 replaces HACS with the built-in **Marketplace**. It reads the same `hacs.json`; a custom repository is added with Settings > Marketplace > Add from link. Its "apps" refusal only matches `home-assistant/addons` and `hassio-addons/*`, so this repository (integration plus add-on) is accepted.
+
+## Decided against
+
+Do not build these again without asking the owner:
+
+- **Power control** (switching the printer on for a job and off when idle, for plugs and button pressers). Shipped in 1.15.0, removed in 1.15.1: the owner's own automation does more (a dashboard toggle that follows the printer's power button, retrying a missed press, notifications), and two pressers acting on one job switch a printer straight back off. The README's automation example covers the simple case; the Queue sensor is what automations trigger on.
+- **Live progress notifications** for print jobs: most jobs finish in seconds, and CUPS cannot tell which person sent a job (iOS prints anonymously).
+- **Job events and cancel/resume/test-page buttons:** not worth it unless stuck queues become a problem; jobs are retried for 20 minutes.
+- **Splitting `monitor.sh`'s scan into smaller functions:** a bash refactor risks the quoting and field bugs above for no change in behaviour.
 
 ## Security scanning
 

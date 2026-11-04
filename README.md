@@ -13,7 +13,7 @@
 > This is a fork of [aaronfagan/ha-airprint](https://github.com/aaronfagan/ha-airprint). It adds:
 >
 > - **Driverless printing** (IPP Everywhere) for printers no bundled driver matches — [Driverless printing](#driverless-printing)
-> - **Printers that are switched off** most of the time: a job switches the printer on (smart plug or a button presser such as a SwitchBot Bot) and it is switched off again when idle — [Switching the printer on and off](#switching-the-printer-on-and-off)
+> - **Printers that are switched off** most of the time: jobs wait 20 minutes, and the Queue sensor sees a job within ~30 s, so an automation can switch the printer on — [Does my printer need this?](#does-my-printer-need-this)
 > - **Printing over a VPN** — [Printing over a VPN](#printing-over-a-vpn)
 > - **Hardening:** printer control needs authentication, nothing probes the printer's print port, and the add-on restarts itself when a service it depends on stops — [Security](#security)
 
@@ -27,7 +27,22 @@ If your printer already does AirPrint, you don't need this — print to it direc
 
 If it doesn't, and you have been keeping a computer switched on so that everyone can print, this replaces it. Any printer reachable on your network over **port 9100 (socket) or 515 (LPD)** will work.
 
-It also helps with an AirPrint printer that is **switched off** most of the time. Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway, a job waits (up to 20 minutes) until the printer is back, and Home Assistant can switch the printer on for it — see [Switching the printer on and off](#switching-the-printer-on-and-off).
+It also helps with an AirPrint printer that is **switched off** most of the time (on a smart plug, say). Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway. A job waits in the **Queue** (up to 20 minutes) until the printer is back. The Queue sensor sees a new job within about 30 seconds, so an automation on it can switch the printer on:
+
+```yaml
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.my_printer_queue
+    above: 0
+conditions:
+  - condition: state
+    entity_id: switch.printer_plug
+    state: "off"
+actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.printer_plug
+```
 
 ## Which printers work
 
@@ -64,15 +79,13 @@ Turn on **Watchdog** on the add-on's page, so Home Assistant restarts it if its 
 
 **3. Add your printer** — Home Assistant finds the add-on by itself and shows an **AirPrint** card under Settings → Devices & Services. Click **Add**. Your printer is already filled in:
 
-(If the Marketplace opens the AirPrint setup straight after installing, it asks for the add-on's address instead: keep `127.0.0.1` and port `8099`. Your printer is offered next.)
-
 | Field | |
 | --- | --- |
 | **Name** | Pre-filled with the printer's make and model. This is the name shown in the print dialogue. Clear it to go back to the make and model. |
 | **Location** | Optional. Shown under the name when printing. |
 | **Icon** | Optional. An emoji shown in front of the name — see [Icons](#icons). |
-| **Power switch** | Optional. What switches the printer on — see [Switching the printer on and off](#switching-the-printer-on-and-off). |
-| **Switch off after** | Minutes without print jobs before it is switched off again (default 15; 0 leaves it on). |
+
+If the Marketplace opens the AirPrint setup straight after installing, it asks for the add-on's address first: keep `127.0.0.1` and port `8099`. Your printer is offered next.
 
 There is no IP address to type. The printer is found on the network, and stays found even if its address changes — see [How it finds your printer](#how-it-finds-your-printer).
 
@@ -95,18 +108,7 @@ Each printer becomes a device in Home Assistant:
 
 Toner, page count and the *reason* behind a problem come from **SNMP** (the standard Printer MIB). Printers that don't expose it don't get those sensors; everything else still works.
 
-You also get a notification when a printer is refusing jobs with work queued behind it — *"Out of paper"* — and when a printer turns up on the network that isn't set up yet (once; dismiss it and it stays dismissed). A printer with no driver, which cannot print, raises a **repair** under Settings → System → Repairs.
-
-## Switching the printer on and off
-
-For a printer that is off most of the time, pick what switches it on in its **Power switch** field (when adding it, or later under **Edit printer**):
-
-- **A smart plug** (any `switch` entity). When a job is waiting and the plug is off, it is switched on.
-- **A button presser** such as a SwitchBot Bot or a fingerbot, pressing the printer's power button (a `button` entity, or a `switch` in press mode). Each press toggles the printer, so it is only pressed while the printer reads **Offline**, and not again while it is starting up (it waits 5 minutes, and gives up after two tries).
-
-A job reaches Home Assistant within about 30 seconds, and waits in the queue until the printer has started.
-
-After **Switch off after** minutes without a job, the printer is switched off again — but only if Home Assistant switched it on for a print job. A printer you switched on yourself, to copy or scan, is left on. A presser is only pressed to switch off while the printer reads **Online** (it may already have gone into standby by itself), so this needs a printer that answers SNMP.
+You also get a notification when a printer is refusing jobs with work queued behind it — *"Out of paper"* — and when a printer turns up on the network that isn't set up yet (once; dismiss it and it stays dismissed). A printer with no driver, which cannot print, raises a **repair** under Settings → System → Repairs; select **Fix** on it to add one.
 
 ## Drivers
 
@@ -150,8 +152,8 @@ A printer that a bundled driver matches keeps that driver; driverless is only th
 Canon's imageCLASS / i-SENSYS lasers are host-based, and no free driver drives them. Canon publishes one Linux driver covering the whole family — a single package holds **429 PPDs**, with an arm64 build too.
 
 1. Open Canon's [UFR II/UFRII LT Printer Driver for Linux](https://asia.canon/en/support/0100924010) page and copy the download link for the `.tar.gz`.
-2. Paste it into the printer's **Driver file URL** field when Home Assistant asks for a driver.
-3. Start the add-on. It logs what it installed and the driver it matched:
+2. Paste it into the printer's **Driver file URL** field when Home Assistant asks for a driver (or select **Fix** on the repair).
+3. The add-on restarts and installs it. Its log shows what it installed and the driver it matched:
 
 ```
 [airprint] downloading driver linux-UFRII-drv-v630-m17n-10.tar.gz
@@ -175,7 +177,7 @@ A driverless queue prints over IPP instead, with the same kind of name: `dnssd:/
 
 CUPS resolves it to an address **at the moment you print** — the same *"Looking for printer…"* step a laptop does. The printer's IP can change and it is simply found again: nothing to reconfigure, no address to keep in sync.
 
-If it cannot be found, the printer reports **Offline** and the job fails at the device.
+If it cannot be found, the printer reports **Offline** and the job waits in the queue, retried for up to 20 minutes, so a printer switched on in the meantime still prints it.
 
 A printer that advertises no Bonjour service at all is the one case where you are asked for an address.
 
@@ -185,7 +187,7 @@ Away from home, through a VPN (WireGuard, say), the printer does not show up: ph
 
 1. **Allow the VPN to print.** Add its subnet to the add-on's **Networks allowed to print** option (Settings → Apps → AirPrint → Configuration), e.g. `192.168.3.0/24`, and restart the add-on. Those addresses can print; the print server's admin pages stay limited to your home network.
 2. **Open port 631 for it.** In your router's firewall, allow the VPN subnet to reach Home Assistant's address on **TCP 631**, nothing else.
-3. **Add the printer to the phone once.** iOS takes a fixed AirPrint printer from a configuration profile, so it is there without Bonjour. Save this as `airprint.mobileconfig` with your Home Assistant's address and the printer's queue name (its name with anything but letters and digits as `_`; the add-on's log shows it), open it on the iPhone and install it under Settings → Profile Downloaded:
+3. **Add the printer to the phone once.** iOS takes a fixed AirPrint printer from a configuration profile, so it is there without Bonjour. Save this as `airprint.mobileconfig` with your Home Assistant's address and the printer's queue name (its name with anything but letters, digits, `-` and `_` turned into `_`; the add-on's log shows it), open it on the iPhone and install it under Settings → Profile Downloaded:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -241,8 +243,10 @@ Desktop clients *do* fetch the icon image, and the add-on serves one automatical
 ## Troubleshooting
 
 - **The printer doesn't appear when I print.** Check the add-on's log: it should show a driver and a queue for your printer. If it says no driver matched, see [Drivers](#drivers).
+- **Status reads `No driver`.** No bundled driver matches the printer. Select **Fix** on its repair (Settings → System → Repairs) and paste a link to the manufacturer's driver — see [Drivers](#drivers).
 - **It appears, but jobs never print.** Check the **Status** sensor — out of paper, jammed and door-open are all reported there. Many printers refuse connections entirely when they are out of paper.
 - **It never appears at all.** Home Assistant OS runs its own mDNS stack, and this add-on runs Avahi alongside it. It works, and it is [known to fail for some people](https://github.com/MaxWinterstein/homeassistant-addons/issues/508). That is the place to look.
+- **The add-on stopped and stayed stopped.** Turn on **Watchdog** on the add-on's page: then Home Assistant restarts it when its print server or Avahi stops.
 - **Home Assistant offers to set up an "IPP" integration.** That is Home Assistant discovering this add-on, which is now genuinely an IPP printer. Ignore the card.
 
 ## Notes

@@ -14,11 +14,6 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
-    EntitySelector,
-    EntitySelectorConfig,
-    NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -29,19 +24,7 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
-from .const import (
-    CONF_POWER_OFF_AFTER,
-    CONF_POWER_SWITCH,
-    DEFAULT_ICON,
-    DEFAULT_POWER_OFF_AFTER,
-    DEFAULT_PORT,
-    DOMAIN,
-    ICONS,
-    SUBENTRY,
-    device_name,
-    driver_error,
-    label,
-)
+from .const import DEFAULT_ICON, DEFAULT_PORT, DOMAIN, ICONS, SUBENTRY, device_name, driver_error, label
 from .coordinator import async_fetch_status
 
 # The add-on and Home Assistant both run on the host network, so a manual
@@ -80,16 +63,6 @@ def printer_schema(discovered: list[dict], editing: bool = False) -> vol.Schema:
     fields[vol.Optional("icon")] = SelectSelector(
         SelectSelectorConfig(options=ICONS, mode=SelectSelectorMode.DROPDOWN)
     )
-    # A smart plug (switch) or a presser such as a SwitchBot Bot (button, or a
-    # switch in press mode). See power.py.
-    fields[vol.Optional(CONF_POWER_SWITCH)] = EntitySelector(
-        EntitySelectorConfig(domain=["switch", "button"])
-    )
-    fields[vol.Optional(CONF_POWER_OFF_AFTER)] = NumberSelector(
-        NumberSelectorConfig(
-            min=0, max=240, step=1, unit_of_measurement="min", mode=NumberSelectorMode.BOX
-        )
-    )
 
     if editing:
         fields[vol.Optional("driver")] = driver_field()
@@ -113,8 +86,6 @@ def printer_suggested(discovered: list[dict], current: dict[str, Any] | None = N
         "location": current.get("location", ""),
         "icon": current.get("icon", DEFAULT_ICON),
         "driver": current.get("driver", ""),
-        CONF_POWER_SWITCH: current.get(CONF_POWER_SWITCH, ""),
-        CONF_POWER_OFF_AFTER: current.get(CONF_POWER_OFF_AFTER, DEFAULT_POWER_OFF_AFTER),
     }
 
 
@@ -144,12 +115,6 @@ def printer_data(
         "driver": user_input.get("driver", current.get("driver", "")).strip(),
         "location": user_input.get("location", ""),
         "discovered_name": discovered_name,
-        CONF_POWER_SWITCH: user_input.get(CONF_POWER_SWITCH, current.get(CONF_POWER_SWITCH, "")),
-        CONF_POWER_OFF_AFTER: int(
-            user_input.get(
-                CONF_POWER_OFF_AFTER, current.get(CONF_POWER_OFF_AFTER, DEFAULT_POWER_OFF_AFTER)
-            )
-        ),
     }
 
 
@@ -328,12 +293,8 @@ class PrinterSubentryFlow(PrinterSteps, ConfigSubentryFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            # A cleared field is left out of the form's data: no driver, no switch.
-            user_input = {
-                **user_input,
-                "driver": user_input.get("driver", ""),
-                CONF_POWER_SWITCH: user_input.get(CONF_POWER_SWITCH, ""),
-            }
+            # A cleared field is left out of the form's data: no driver.
+            user_input = {**user_input, "driver": user_input.get("driver", "")}
             if error := driver_error(user_input["driver"], current.get("driver", "")):
                 errors["driver"] = error
             else:
