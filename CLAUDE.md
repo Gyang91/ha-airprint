@@ -108,3 +108,15 @@ Each of these cost real debugging time at least once.
 - **`lpadmin -m everywhere` crashes cupsd 2.4.2 (bookworm)** with `free(): invalid pointer`. Driverless PPDs are built by cups-filters in its own process instead (`/usr/lib/cups/driver/driverless cat driverless:ipp://...`) and installed with `lpadmin -P`.
 - **cups-filters lists a reachable AirPrint printer as a `driverless:ipp://...` model**, so `lpinfo --device-id` "matches" it. That PPD only exists while the printer is on, and its raster output belongs on IPP, not the raw port: `discover.sh` turns such a match into the driverless path (IPP URI, PPD cached in `/config/driverless`).
 - **A dnssd URI needs the service name URL-encoded** (`HP%20Laser%20(x)`), not avahi's `\032` escapes. The stored `device` identity keeps the avahi form for compatibility; only the print `uri` is encoded.
+
+## Security scanning
+
+`.github/workflows/security.yml` builds the image and scans it with Trivy (official `aquasec/trivy` image; the trivy-action install script failed to download) on every push, pull request and weekly. It fails only on **fixable** HIGH/CRITICAL findings and uploads the full report to Security > Code scanning. The Dockerfile runs `apt-get upgrade`, so a rebuild (any release) takes Debian's current security updates; when the weekly scan fails, cut a release.
+
+Most open alerts have **no fix in Debian bookworm** (nor trixie). Checked 2026-11-04 for the network-facing CUPS ones:
+
+- **CVE-2026-34980** (fixed in CUPS 2.4.17, Debian sid/forky only): needs a shared **PostScript** queue. Driverless queues here are PWG raster.
+- **CVE-2026-55453** (fixed in 2.4.20, sid only): needs a **Foomatic** queue and a malicious printer on the network feeding status messages.
+- **CVE-2024-47850**: cups-browsed, which is not installed (the alert comes from `libfontembed1`, built from the same source).
+
+cupsd only accepts the local network (`Allow @LOCAL`). Moving to Debian testing would fix these but trades a stable base for a moving one; revisit when a stable release ships CUPS >= 2.4.20.

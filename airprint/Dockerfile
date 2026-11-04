@@ -2,7 +2,10 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# upgrade: the base image can lag behind Debian's security updates; every
+# build takes the current ones (see the Security workflow).
 RUN apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends \
       avahi-daemon \
       avahi-utils \
