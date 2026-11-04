@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/Gyang91/ha-airprint/compare/v1.14.0...v1.14.1) (2026-11-04)
+
+
+### Documentation
+
+* a VPN profile printer needs ForceTLS on iOS ([d1e3282](https://github.com/Gyang91/ha-airprint/commit/d1e3282788688085a92ce56485fc939084530036))
+
 ## [1.14.0](https://github.com/Gyang91/ha-airprint/compare/v1.13.8...v1.14.0) (2026-11-04)
 
 
