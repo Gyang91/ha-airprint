@@ -2,7 +2,7 @@ import re
 
 DOMAIN = "airprint"
 DEFAULT_PORT = 8099
-UPDATE_INTERVAL = 60
+UPDATE_INTERVAL = 15
 SUPERVISOR = "http://supervisor"
 SUBENTRY = "printer"
 DEVICE_NAME = "Printer"

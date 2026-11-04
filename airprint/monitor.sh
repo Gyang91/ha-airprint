@@ -5,12 +5,28 @@ QUEUES=/tmp/airprint-queues
 NOTIFIED=/tmp/airprint-notified
 STATUS=/srv/status.json
 CORE=http://supervisor/core/api
-INTERVAL=60
+
+# Print jobs are counted every TICK seconds, so a job for a switched-off printer
+# shows up fast (an automation can switch it on). The full scan - mDNS discovery,
+# SNMP, driver matching - is slower and runs every SCAN_EVERY ticks.
+TICK=15
+SCAN_EVERY=4
+
+# SNMP objects read in one request per printer.
+OID_UPTIME=.1.3.6.1.2.1.1.3.0
+OID_SUPPLY=.1.3.6.1.2.1.43.11.1.1.6.1.1
+OID_CAPACITY=.1.3.6.1.2.1.43.11.1.1.8.1.1
+OID_LEVEL=.1.3.6.1.2.1.43.11.1.1.9.1.1
+OID_PAGES=.1.3.6.1.2.1.43.10.2.1.4.1.1
 
 # shellcheck source=match.sh
 . /match.sh
 
 touch "${NOTIFIED}"
+
+PRINTERS="[]"
+DISCOVERED="[]"
+SLUG=""
 
 notify() {
 	curl -sS -o /dev/null -m 10 \
@@ -29,12 +45,16 @@ dismiss() {
 		"${CORE}/services/persistent_notification/dismiss" || true
 }
 
-snmp() {
-	snmpget -v1 -c public -t 2 -r 0 -Oqv "$1" "$2" 2>/dev/null | tr -d '"'
+# All status objects in one request. -On prints "OID value" per line, so an
+# object the printer lacks is just missing (SNMPv1 retries without it).
+snmp_status() {
+	snmpget -v1 -c public -t 2 -r 0 -Oqn "$1" \
+		"${OID_UPTIME}" "${OID_SUPPLY}" "${OID_CAPACITY}" "${OID_LEVEL}" "${OID_PAGES}" 2>/dev/null
 }
 
-alive() {
-	[ -n "$(snmp "$1" 1.3.6.1.2.1.1.3.0)" ]
+# snmp_value SNMP_OUTPUT OID -> the value, without quotes.
+snmp_value() {
+	printf '%s\n' "$1" | awk -v oid="$2" '$1 == oid { $1 = ""; sub(/^ /, ""); gsub(/"/, ""); print; exit }'
 }
 
 error_reasons() {
@@ -57,44 +77,48 @@ error_reasons() {
 	printf '%s\n' "${reasons[@]}"
 }
 
-resolve() {
-	case "$1" in
+# Waiting jobs per queue, as JSON: {"Drucker_B_ro": 1}. One lpstat for all queues.
+job_counts() {
+	lpstat -o 2>/dev/null |
+		awk '{ sub(/-[0-9]+$/, "", $1); n[$1]++ } END { for (q in n) print q "\t" n[q] }' |
+		jq -Rn '[inputs | split("\t") | {(.[0]): (.[1] | tonumber)}] | add // {}'
+}
+
+# The printer's address. discover.sh already resolved every dnssd printer, so
+# only a socket:// printer (entered as an IP) is parsed here.
+host_of() {
+	local device=$1 found=$2 hostport
+	case "${device}" in
 	dnssd://*)
-		# dnssd://<name>.<_type>._tcp.local/ - browse that service type (_pdl-datastream or _ipp)
-		local service=${1#dnssd://} type
-		type=${service#*._}
-		type="_${type%%._tcp*}._tcp"
-		service=${service%%._*}
-		# Pass the name through ENVIRON, not -v: awk -v turns avahi's escapes
-		# (\032 = space) into other characters, so names with spaces never matched.
-		timeout 6 avahi-browse -rtp "${type}" 2>/dev/null |
-			NAME="${service}" awk -F';' '$1 == "=" && $3 == "IPv4" && $4 == ENVIRON["NAME"] { print $8 "\t" $9; exit }'
+		printf '%s' "${found}" | jq -r --arg d "${device}" '.[] | select(.device == $d) | .address' | head -1
 		;;
 	socket://*)
-		local hostport=${1#socket://}
+		hostport=${device#socket://}
 		hostport=${hostport%%/*}
-		local port=${hostport##*:}
-		[ "${port}" = "${hostport}" ] && port=9100
-		printf '%s\t%s\n' "${hostport%%:*}" "${port}"
+		printf '%s' "${hostport%%:*}"
 		;;
 	esac
 }
 
-while true; do
+scan() {
+	local found configured="" jobs_by_queue
+	local QUEUE DEVICE LABEL LOCATION DRIVER MATCH URI HOST SNMP ONLINE PROBLEM JOBS MODEL
+	local TONER SUPPLY PAGES REASONS LEVEL CAPACITY COUNT WHY ROW NAME SERVICE ID
+
+	found=$(/discover.sh)
+	jobs_by_queue=$(job_counts)
 	PRINTERS="[]"
-	CONFIGURED=""
-	FOUND=$(/discover.sh)
 
 	: > "${QUEUES}.next"
 
 	while IFS=$'\t' read -r QUEUE DEVICE LABEL LOCATION DRIVER; do
 		[ -n "${QUEUE}" ] || continue
-		CONFIGURED="${CONFIGURED} ${DEVICE}"
+		configured="${configured} ${DEVICE}"
 		LOCATION=${LOCATION:-}
 		DRIVER=${DRIVER:-}
 
 		if [ -z "${DRIVER}" ]; then
-			IFS=$'\t' read -r MATCH URI < <(match "${FOUND}" "${DEVICE}" "${QUEUE}")
+			IFS=$'\t' read -r MATCH URI < <(match "${found}" "${DEVICE}" "${QUEUE}")
 			if [ -n "${MATCH}" ] && /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${MATCH}"; then
 				echo "[airprint] ${LABEL}: driver ${MATCH} -> queue created"
 				DRIVER=${MATCH}
@@ -103,13 +127,14 @@ while true; do
 
 		printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}.next"
 
-		IFS=$'\t' read -r HOST _ < <(resolve "${DEVICE}")
+		HOST=$(host_of "${DEVICE}" "${found}")
+		SNMP=""
+		[ -n "${HOST}" ] && SNMP=$(snmp_status "${HOST}")
 
-		if [ -z "${HOST:-}" ]; then
+		if [ -z "${HOST}" ]; then
 			ONLINE=false
 			PROBLEM=false
-			HOST=""
-		elif alive "${HOST}"; then
+		elif [ -n "$(snmp_value "${SNMP}" "${OID_UPTIME}")" ]; then
 			ONLINE=true
 			PROBLEM=false
 		else
@@ -117,19 +142,19 @@ while true; do
 			PROBLEM=true
 		fi
 
-		JOBS=$(lpstat -o "${QUEUE}" 2>/dev/null | grep -c . || true)
-		MODEL=$(printf '%s' "${FOUND}" | jq -r --arg d "${DEVICE}" '.[] | select(.device == $d) | .name' | head -1)
+		JOBS=$(printf '%s' "${jobs_by_queue}" | jq --arg q "${QUEUE}" '.[$q] // 0')
+		MODEL=$(printf '%s' "${found}" | jq -r --arg d "${DEVICE}" '.[] | select(.device == $d) | .name' | head -1)
 
 		TONER=null
 		SUPPLY=""
 		PAGES=null
 		REASONS="[]"
 
-		if [ -n "${HOST}" ]; then
-			SUPPLY=$(snmp "${HOST}" 1.3.6.1.2.1.43.11.1.1.6.1.1)
-			LEVEL=$(snmp "${HOST}" 1.3.6.1.2.1.43.11.1.1.9.1.1)
-			CAPACITY=$(snmp "${HOST}" 1.3.6.1.2.1.43.11.1.1.8.1.1)
-			COUNT=$(snmp "${HOST}" 1.3.6.1.2.1.43.10.2.1.4.1.1)
+		if [ "${ONLINE}" = "true" ] && [ "${PROBLEM}" = "false" ]; then
+			SUPPLY=$(snmp_value "${SNMP}" "${OID_SUPPLY}")
+			LEVEL=$(snmp_value "${SNMP}" "${OID_LEVEL}")
+			CAPACITY=$(snmp_value "${SNMP}" "${OID_CAPACITY}")
+			COUNT=$(snmp_value "${SNMP}" "${OID_PAGES}")
 
 			if [ -n "${LEVEL}" ] && [ -n "${CAPACITY}" ] && [ "${CAPACITY}" -gt 0 ] 2>/dev/null; then
 				TONER=$((LEVEL * 100 / CAPACITY))
@@ -187,7 +212,7 @@ while true; do
 		DEVICE=$(printf '%s' "${ROW}" | jq -r '.device')
 		NAME=$(printf '%s' "${ROW}" | jq -r '.name')
 
-		case " ${CONFIGURED} " in
+		case " ${configured} " in
 		*" ${DEVICE} "*) continue ;;
 		esac
 
@@ -196,7 +221,7 @@ while true; do
 		# first and the _ipp one lingers, which looked like a new IPP-only printer.
 		SERVICE=${DEVICE#dnssd://}
 		SERVICE=${SERVICE%%._*}
-		case " ${CONFIGURED} " in
+		case " ${configured} " in
 		*"dnssd://${SERVICE}._"*) continue ;;
 		esac
 
@@ -208,13 +233,31 @@ while true; do
 		notify "New printer found" \
 			"**${NAME}** is on your network but is not set up. Add it under Settings → Devices & Services → AirPrint." \
 			"new_${ID}"
-	done < <(printf '%s' "${FOUND}" | jq -c '.[]')
+	done < <(printf '%s' "${found}" | jq -c '.[]')
 
-	SLUG=$(curl -sS -m 10 -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/addons/self/info 2>/dev/null | jq -r '.data.slug // ""')
+	# The slug never changes while the add-on runs.
+	[ -n "${SLUG}" ] || SLUG=$(curl -sS -m 10 -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/addons/self/info 2>/dev/null | jq -r '.data.slug // ""')
+}
 
+# Between scans only the job counts change.
+refresh_jobs() {
+	PRINTERS=$(printf '%s' "${PRINTERS}" | jq -c --argjson jobs "$(job_counts)" 'map(.jobs = ($jobs[.id] // 0))')
+}
+
+write_status() {
 	jq -nc --argjson printers "${PRINTERS}" --argjson discovered "${DISCOVERED}" --arg slug "${SLUG}" \
 		'{printers:$printers, discovered:$discovered, slug:$slug}' > "${STATUS}.tmp"
 	mv "${STATUS}.tmp" "${STATUS}"
+}
 
-	sleep "${INTERVAL}"
+TICKS=0
+while true; do
+	if [ $((TICKS % SCAN_EVERY)) -eq 0 ]; then
+		scan
+	else
+		refresh_jobs
+	fi
+	write_status
+	TICKS=$((TICKS + 1))
+	sleep "${TICK}"
 done

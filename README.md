@@ -22,7 +22,7 @@ If your printer already does AirPrint, you don't need this — print to it direc
 
 If it doesn't, and you have been keeping a computer switched on so that everyone can print, this replaces it. Any printer reachable on your network over **port 9100 (socket) or 515 (LPD)** will work.
 
-It also helps with an AirPrint printer that is **switched off** most of the time (on a smart plug, say). Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway. A job waits in the **Queue** (up to 20 minutes) until the printer is back, and an automation on that sensor can switch the printer on:
+It also helps with an AirPrint printer that is **switched off** most of the time (on a smart plug, say). Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway. A job waits in the **Queue** (up to 20 minutes) until the printer is back. The Queue sensor sees a new job within about 30 seconds, so an automation on it can switch the printer on:
 
 ```yaml
 triggers:
