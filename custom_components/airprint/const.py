@@ -8,6 +8,11 @@ SUBENTRY = "printer"
 DEVICE_NAME = "Printer"
 ADDON_NAME = "AirPrint"
 
+# Power control (power.py): one key per field in the printer's form.
+CONF_POWER_SWITCH = "power_switch"
+CONF_POWER_OFF_AFTER = "power_off_after"
+DEFAULT_POWER_OFF_AFTER = 15  # minutes; 0 leaves the printer on
+
 ICONS = ["🖨️", "📠", "📄", "📁", "☁️", "🏢", "🏠"]
 DEFAULT_ICON = "🖨️"
 

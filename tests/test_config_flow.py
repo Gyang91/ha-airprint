@@ -78,6 +78,8 @@ async def test_zeroconf_adds_printer(hass, aioclient_mock):
         "driver": "",
         "location": "Office",
         "discovered_name": "HP Laser MFP 131 133 135-138",
+        "power_switch": "",
+        "power_off_after": 15,
     }
 
 
