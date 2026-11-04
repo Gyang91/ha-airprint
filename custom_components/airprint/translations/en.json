@@ -111,7 +111,28 @@
   "issues": {
     "no_driver": {
       "title": "{name} needs a driver",
-      "description": "Home Assistant has no driver for **{name}**, so it cannot print.\n\nMost printers are matched automatically. Yours needs a driver from its manufacturer: open the printer under Settings → Devices & services → AirPrint, choose **Edit printer** and paste a link to the driver into **Driver file URL**. The add-on restarts and installs it."
+      "fix_flow": {
+        "step": {
+          "driver": {
+            "title": "Add a driver for {name}",
+            "description": "Home Assistant has no driver for **{name}**, so it cannot print.\n\nMost printers are matched automatically; yours needs a driver from its manufacturer. Paste a link to it — a `.deb`, a `.ppd`, or the vendor's `.tar.gz`. The add-on restarts and installs it.",
+            "data": {
+              "driver": "Driver file URL"
+            },
+            "data_description": {
+              "driver": "An https link to the driver file itself. Host it yourself if you can — vendor links break when they publish an update."
+            }
+          }
+        },
+        "error": {
+          "driver_https": "Use an https:// link. The driver is installed with full rights, so it must not be downloaded over plain http.",
+          "driver_file": "Link to the driver file itself: the link must end in .deb, .ppd, .ppd.gz, .tar.gz or .tgz.",
+          "driver_required": "Paste the link to the driver file."
+        },
+        "abort": {
+          "printer_removed": "This printer is no longer set up."
+        }
+      }
     }
   },
   "entity": {

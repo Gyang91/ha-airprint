@@ -19,6 +19,7 @@ PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 type AirPrintConfigEntry = ConfigEntry[AirPrintCoordinator]
 
 NO_DRIVER = "no_driver_"
+IMPORTED = "imported"
 
 # Home Assistant 2026.11 can tie a repair to its config entry (removed with the
 # entry, hidden while it is disabled). Older versions do not take the argument.
@@ -41,23 +42,35 @@ def _printer(data: dict) -> dict:
     return printer
 
 
+async def _async_import_printers(
+    hass: HomeAssistant, entry: AirPrintConfigEntry, coordinator: AirPrintCoordinator
+) -> None:
+    for printer in await coordinator.async_get_printers():
+        hass.config_entries.async_add_subentry(
+            entry,
+            ConfigSubentry(
+                data=_printer(printer),
+                subentry_type=SUBENTRY,
+                title=printer.get("name", ""),
+                unique_id=printer.get("device") or printer.get("name"),
+            ),
+        )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: AirPrintConfigEntry) -> bool:
     coordinator = AirPrintCoordinator(hass, entry.data[CONF_HOST], entry.data[CONF_PORT])
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
 
-    if not entry.subentries:
-        for printer in await coordinator.async_get_printers():
-            hass.config_entries.async_add_subentry(
-                entry,
-                ConfigSubentry(
-                    data=_printer(printer),
-                    subentry_type=SUBENTRY,
-                    title=printer.get("name", ""),
-                    unique_id=printer.get("device") or printer.get("name"),
-                ),
-            )
+    # Printers set up in the add-on's own options (before the integration
+    # owned the list) are imported once. Only once: after that an empty list
+    # means the user removed every printer, which must stay removed.
+    # Without the add-on's slug its options cannot be read yet: try next time.
+    if not entry.data.get(IMPORTED) and (entry.subentries or coordinator.slug):
+        if not entry.subentries:
+            await _async_import_printers(hass, entry, coordinator)
+        hass.config_entries.async_update_entry(entry, data={**entry.data, IMPORTED: True})
 
     for subentry in entry.subentries.values():
         data = dict(subentry.data)
@@ -127,14 +140,17 @@ def _async_check_drivers(hass: HomeAssistant, entry: AirPrintConfigEntry) -> Non
             ir.async_delete_issue(hass, DOMAIN, issue_id)
             continue
 
+        name = printer.get("model") or printer["id"]
         ir.async_create_issue(
             hass,
             DOMAIN,
             issue_id,
-            is_fixable=False,
+            # Fix asks for the driver link (repairs.py).
+            is_fixable=True,
+            data={"entry_id": entry.entry_id, "device": printer.get("device", ""), "name": name},
             severity=ir.IssueSeverity.ERROR,
             translation_key="no_driver",
-            translation_placeholders={"name": printer.get("model") or printer["id"]},
+            translation_placeholders={"name": name},
             learn_more_url="https://github.com/Gyang91/ha-airprint#drivers",
             **extra,
         )
