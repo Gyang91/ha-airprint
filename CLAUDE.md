@@ -55,21 +55,22 @@ Verify against the real thing rather than asserting. The add-on's log and `/srv/
 
 ## Releasing
 
+This is the **Gyang91 fork**; releases are automatic (release-please, same setup as the user's other forks).
+
 The version lives in **two files that must always match**, because the Supervisor pulls `<image>:<version from config.yaml>`:
 
 - `airprint/config.yaml` → `version:`
 - `custom_components/airprint/manifest.json` → `"version"`
 
-Never edit them by hand. Use:
+Never edit them by hand. release-please bumps both (`extra-files` in `release-please-config.json`) from the conventional commits on `main`:
 
-```bash
-scripts/version.sh 1.11.0        # sets both, commits, tags
-git push origin main && git push origin v1.11.0
-```
+1. Push or merge `feat:` / `fix:` / `perf:` commits to `main` (`auto-merge.yml` merges the owner's green pull requests and Dependabot's).
+2. `release.yml` opens or updates the release pull request, checks it, merges it and tags `vX.Y.Z` in the same run.
+3. The same run builds `amd64` and `aarch64`, and publishes one multi-arch image to `ghcr.io/gyang91/ha-airprint/airprint` (lowercase: GHCR rejects capitals).
 
-Pushing the tag builds `amd64` and `aarch64`, publishes one multi-arch image to GHCR, and cuts a GitHub release. CI **fails the release** if the tag and the two files disagree, so they cannot drift.
+`chore:`, `ci:`, `docs:`, `test:` do not release. To force a version, add `Release-As: X.Y.Z` to a commit body.
 
-**Patch** for fixes and copy. **Minor** for features. **Major** only for something that breaks an existing config.
+The GHCR package must be **public**, or the Supervisor cannot pull it (first publish creates it private: Package settings → Change visibility).
 
 ## Keep the README current
 

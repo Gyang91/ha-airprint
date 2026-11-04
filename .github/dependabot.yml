@@ -1,0 +1,30 @@
+# Weekly dependency update pull requests (GitHub Dependabot, free for public
+# repositories). Workflow actions (`ci(deps)`) and the add-on's base image
+# (`chore(deps)`) do not trigger a release on their own.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /airprint
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      # Pinned on purpose: CUPS 3.x (trixie and later) drops the PPD drivers
+      # this add-on runs. See CLAUDE.md.
+      - dependency-name: debian
+        update-types: ["version-update:semver-major"]

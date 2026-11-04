@@ -19,7 +19,7 @@ jobs:
           echo "add-on=${addon} integration=${integration}"
 
           if [ "${addon}" != "${integration}" ]; then
-            echo "::error::The add-on and the integration are on different versions. Use scripts/version.sh."
+            echo "::error::The add-on and the integration are on different versions. release-please bumps both; do not edit them by hand."
             exit 1
           fi
 
