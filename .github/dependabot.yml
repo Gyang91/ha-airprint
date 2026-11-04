@@ -15,6 +15,16 @@ updates:
       actions:
         patterns: ["*"]
 
+  # The Home Assistant test harness (`test(deps)`, no release).
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: test
+      include: scope
+
   - package-ecosystem: docker
     directory: /airprint
     schedule:
