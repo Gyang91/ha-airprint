@@ -2,3 +2,10 @@ configuration:
   printers:
     name: Printers
     description: Managed in Settings → Devices & Services → AirPrint. Anything changed here is overwritten.
+  networks:
+    name: Networks allowed to print
+    description: >-
+      Other networks that may print, as CIDR (for example a VPN subnet,
+      192.168.3.0/24). The home network always may. They can print, not
+      administer the print server, and your router's firewall must let them
+      reach port 631.

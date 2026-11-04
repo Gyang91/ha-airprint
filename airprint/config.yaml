@@ -21,6 +21,7 @@ map:
   - share:rw
 options:
   printers: []
+  networks: []
 schema:
   printers:
     - icon: list(🖨️|📠|📄|📁|☁️|🏢|🏠)?
@@ -28,3 +29,5 @@ schema:
       location: str?
       device: str?
       driver: url?
+  networks:
+    - match(^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$)

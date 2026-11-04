@@ -13,7 +13,19 @@ STATUS_DIR=/srv
 pkill -x cupsd 2>/dev/null && sleep 2
 rm -f /run/cups/cupsd.pid
 
-install -m 0644 /usr/share/airprint/cupsd.conf /etc/cups/cupsd.conf
+# Extra networks allowed to print (not to administer), e.g. a VPN subnet. The
+# Supervisor already checks the format; check again, since it lands in cupsd.conf.
+ALLOW=""
+for NET in $(jq -r '.networks // [] | .[]' "${OPTIONS}"); do
+	if [[ "${NET}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+		ALLOW="${ALLOW}  Allow ${NET}\n"
+		echo "[airprint] printing allowed from ${NET}"
+	else
+		echo "[airprint] ignoring network ${NET}: use a CIDR like 192.168.3.0/24"
+	fi
+done
+awk -v allow="${ALLOW}" '/# @NETWORKS@/ { printf "%s", allow; next } { print }' \
+	/usr/share/airprint/cupsd.conf > /etc/cups/cupsd.conf
 
 if grep -q '^SystemGroup' /etc/cups/cups-files.conf 2>/dev/null; then
 	sed -i 's/^SystemGroup.*/SystemGroup root lpadmin/' /etc/cups/cups-files.conf

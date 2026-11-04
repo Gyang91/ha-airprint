@@ -155,6 +155,48 @@ If it cannot be found, the printer reports **Offline** and the job fails at the 
 
 A printer that advertises no Bonjour service at all is the one case where you are asked for an address.
 
+## Printing over a VPN
+
+Away from home, through a VPN (WireGuard, say), the printer does not show up: phones find AirPrint printers with Bonjour, and VPNs do not carry it. Three steps make it work:
+
+1. **Allow the VPN to print.** Add its subnet to the add-on's **Networks allowed to print** option (Settings → Apps → AirPrint → Configuration), e.g. `192.168.3.0/24`, and restart the add-on. Those addresses can print; the print server's admin pages stay limited to your home network.
+2. **Open port 631 for it.** In your router's firewall, allow the VPN subnet to reach Home Assistant's address on **TCP 631**, nothing else.
+3. **Add the printer to the phone once.** iOS takes a fixed AirPrint printer from a configuration profile, so it is there without Bonjour. Save this as `airprint.mobileconfig` with your Home Assistant's address and the printer's queue name (its name with anything but letters and digits as `_`; the add-on's log shows it), open it on the iPhone and install it under Settings → Profile Downloaded:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadType</key><string>Configuration</string>
+  <key>PayloadVersion</key><integer>1</integer>
+  <key>PayloadIdentifier</key><string>home-assistant.airprint</string>
+  <key>PayloadUUID</key><string>2F0C9B44-6B63-4C1E-9D8A-3E2A61B7C501</string>
+  <key>PayloadDisplayName</key><string>AirPrint over VPN</string>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadType</key><string>com.apple.airprint</string>
+      <key>PayloadVersion</key><integer>1</integer>
+      <key>PayloadIdentifier</key><string>home-assistant.airprint.printers</string>
+      <key>PayloadUUID</key><string>7D1E4A52-0C3B-4F6E-A1B9-58C2D4E6F703</string>
+      <key>AirPrint</key>
+      <array>
+        <dict>
+          <key>IPAddress</key><string>192.168.1.100</string>
+          <key>ResourcePath</key><string>printers/My_Printer</string>
+          <key>Port</key><integer>631</integer>
+          <key>ForceTLS</key><false/>
+        </dict>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>
+```
+
+The job travels inside the VPN tunnel, which encrypts it. At home the printer may then be listed twice (from Bonjour and from the profile); both work.
+
 ## Icons
 
 **On iOS, a printer's "icon" is an emoji in its name.** The print picker shows the advertised name and ignores the icon image entirely. So pick an emoji in the **Icon** field and it is prefixed to the name — in the print dialogue and in Home Assistant, so the printer reads the same in both.
