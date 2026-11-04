@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.4](https://github.com/Gyang91/ha-airprint/compare/v1.14.3...v1.14.4) (2026-11-04)
+
+
+### Bug Fixes
+
+* check driver links in the form, and point at the right place for them ([3e94795](https://github.com/Gyang91/ha-airprint/commit/3e9479534d787ec152751dfad1c68a31e12a48b9))
+* keep device discovery away from the printer's raw port, and stop repeating notifications ([7c1c46c](https://github.com/Gyang91/ha-airprint/commit/7c1c46c130c5f7e12ccea8af65774c34149cae21))
+
 ## [1.14.3](https://github.com/Gyang91/ha-airprint/compare/v1.14.2...v1.14.3) (2026-11-04)
 
 
