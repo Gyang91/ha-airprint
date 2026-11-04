@@ -27,6 +27,13 @@ done
 awk -v allow="${ALLOW}" '/# @NETWORKS@/ { printf "%s", allow; next } { print }' \
 	/usr/share/airprint/cupsd.conf > /etc/cups/cupsd.conf
 
+# Keep CUPS' self-signed TLS certificate across updates: an iPhone printing
+# over a VPN uses TLS (the profile's ForceTLS), and a new certificate on every
+# new container is a needless change of identity.
+mkdir -p /config/ssl
+sed -i '/^ServerKeychain/d' /etc/cups/cups-files.conf 2>/dev/null || true
+echo 'ServerKeychain /config/ssl' >> /etc/cups/cups-files.conf
+
 if grep -q '^SystemGroup' /etc/cups/cups-files.conf 2>/dev/null; then
 	sed -i 's/^SystemGroup.*/SystemGroup root lpadmin/' /etc/cups/cups-files.conf
 else
