@@ -2,12 +2,12 @@
   "domain": "airprint",
   "name": "AirPrint",
   "codeowners": [
-    "@aaronfagan"
+    "@Gyang91"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/aaronfagan/ha-airprint",
+  "documentation": "https://github.com/Gyang91/ha-airprint",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/aaronfagan/ha-airprint/issues",
+  "issue_tracker": "https://github.com/Gyang91/ha-airprint/issues",
   "requirements": [],
   "version": "1.12.0",
   "zeroconf": [

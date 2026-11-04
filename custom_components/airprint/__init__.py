@@ -125,7 +125,7 @@ def _async_check_drivers(hass: HomeAssistant, coordinator) -> None:
             severity=ir.IssueSeverity.ERROR,
             translation_key="no_driver",
             translation_placeholders={"name": printer.get("model") or printer["id"]},
-            learn_more_url="https://github.com/aaronfagan/ha-airprint#drivers",
+            learn_more_url="https://github.com/Gyang91/ha-airprint#drivers",
         )
 
 
