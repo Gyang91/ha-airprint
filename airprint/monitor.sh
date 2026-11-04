@@ -65,8 +65,10 @@ resolve() {
 		type=${service#*._}
 		type="_${type%%._tcp*}._tcp"
 		service=${service%%._*}
+		# Pass the name through ENVIRON, not -v: awk -v turns avahi's escapes
+		# (\032 = space) into other characters, so names with spaces never matched.
 		timeout 6 avahi-browse -rtp "${type}" 2>/dev/null |
-			awk -F';' -v name="${service}" '$1 == "=" && $3 == "IPv4" && $4 == name { print $8 "\t" $9; exit }'
+			NAME="${service}" awk -F';' '$1 == "=" && $3 == "IPv4" && $4 == ENVIRON["NAME"] { print $8 "\t" $9; exit }'
 		;;
 	socket://*)
 		local hostport=${1#socket://}
