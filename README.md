@@ -10,7 +10,12 @@
 
 ---
 
-> This is a fork of [aaronfagan/ha-airprint](https://github.com/aaronfagan/ha-airprint). It adds **driverless printing (IPP Everywhere)** for printers that no bundled driver matches, see [Driverless printing](#driverless-printing).
+> This is a fork of [aaronfagan/ha-airprint](https://github.com/aaronfagan/ha-airprint). It adds:
+>
+> - **Driverless printing** (IPP Everywhere) for printers no bundled driver matches — [Driverless printing](#driverless-printing)
+> - **Printers that are switched off** most of the time: jobs wait 20 minutes, and the Queue sensor sees a job within ~30 s, so an automation can switch the printer on — [Does my printer need this?](#does-my-printer-need-this)
+> - **Printing over a VPN** — [Printing over a VPN](#printing-over-a-vpn)
+> - **Hardening:** printer control needs authentication, and the add-on restarts itself when a service it depends on stops — [Security](#security)
 
 Home Assistant becomes the print server: it advertises your printer over AirPrint, runs the printer's driver, and gives you sensors for toner, page count and whether the thing is out of paper.
 
@@ -39,11 +44,28 @@ actions:
       entity_id: switch.printer_plug
 ```
 
+## Which printers work
+
+Any printer on your network, from any brand, in one of three ways — tried in this order:
+
+| Your printer | What happens | Examples |
+| --- | --- | --- |
+| A **free driver** matches it | Set up automatically | Most HP (hpcups), Brother lasers (brlaser), Samsung (splix), Epson and Canon inkjets (Gutenprint), many Kyocera, Ricoh, Xerox (OpenPrinting PPDs) |
+| It speaks **AirPrint / IPP Everywhere** | Set up **driverless** automatically | Almost every printer sold since about 2014, including models with no Linux driver (HP Laser MFP 13x) |
+| Only a **vendor driver** drives it | You give a link to the driver once | Host-based Canon lasers (UFR II) — see [Drivers](#drivers) |
+
+Not supported:
+
+- **USB-only printers.** The add-on prints over the network; a printer plugged into the Home Assistant machine is not used.
+- **Toner, page count and the reason behind a problem** need SNMP. A printer without it still prints and still reports Online / Offline and its queue.
+
+A printer that does not announce itself on the network (no Bonjour) works too: you are asked for its address when you add it.
+
 ## Install
 
 Two pieces: an **add-on** (the print server) and an **integration** (the setup screens and the sensors).
 
-**1. Add-on** — Settings → Add-ons → Add-on Store → ⋮ → **Repositories** → add:
+**1. Add-on** — Settings → Apps (or Add-ons) → store → ⋮ → **Repositories** → add:
 
 ```
 https://github.com/Gyang91/ha-airprint
@@ -75,7 +97,7 @@ Each printer becomes a device in Home Assistant:
 | --- | --- |
 | **Status** | `Ready`, `Printing`, `Out of paper`, `Paper jam`, `Toner low`, `Door open`, `Offline`, `No driver` |
 | **Health** | `OK` / `Problem` — the one to alert on |
-| **Online** | Whether the printer answers on the network |
+| **Online** | Whether the printer answers on the network (SNMP) |
 | **Queue** | Jobs waiting |
 | **Toner** | Percentage remaining, with the cartridge name |
 | **Printed** | The printer's lifetime page counter |
@@ -196,6 +218,14 @@ Away from home, through a VPN (WireGuard, say), the printer does not show up: ph
 ```
 
 Keep **ForceTLS** on: without it iOS lists no printer from the profile when away ("No AirPrint Printers Found"), even though the print server is reachable. CUPS answers TLS on port 631 with its own certificate, so nothing else needs setting up. At home the printer may then be listed twice (from Bonjour and from the profile); both work.
+
+## Security
+
+- **Who can print:** your home network (the network Home Assistant is in), plus any network you list under **Networks allowed to print**. Nobody else.
+- **Who can change the printer:** pausing it, making it reject jobs, cancelling other people's jobs and the admin pages need a signed-in administrator. Phones that may print can only print and manage their own jobs.
+- **Nothing is opened to the internet.** For printing away from home, use a VPN ([above](#printing-over-a-vpn)) and open only TCP 631 to Home Assistant in your firewall.
+- **Self-healing:** if Avahi or the print server stops, the add-on stops too and Home Assistant's watchdog restarts it. Its helpers (status feed, monitor) restart on their own, without interrupting printing.
+- The image is scanned for vulnerabilities on every change and weekly. CUPS issues without a fix in Debian yet are tracked in [CLAUDE.md](CLAUDE.md#security-scanning). They need a PostScript or Foomatic queue and an attacker already on your network; a driverless queue is neither.
 
 ## Icons
 
