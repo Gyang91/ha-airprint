@@ -28,22 +28,7 @@ If your printer already does AirPrint, you don't need this — print to it direc
 
 If it doesn't, and you have been keeping a computer switched on so that everyone can print, this replaces it. Any printer reachable on your network over **port 9100 (socket) or 515 (LPD)** will work.
 
-It also helps with an AirPrint printer that is **switched off** most of the time (on a smart plug, say). Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway. A job waits in the **Queue** (up to 20 minutes) until the printer is back. The Queue sensor sees a new job within about 30 seconds, so an automation on it can switch the printer on:
-
-```yaml
-triggers:
-  - trigger: numeric_state
-    entity_id: sensor.my_printer_queue
-    above: 0
-conditions:
-  - condition: state
-    entity_id: switch.printer_plug
-    state: "off"
-actions:
-  - action: switch.turn_on
-    target:
-      entity_id: switch.printer_plug
-```
+It also helps with an AirPrint printer that is **switched off** most of the time (on a smart plug, say). Home Assistant keeps the print queue, so the printer shows in the print dialogue anyway, and a job waits (up to 20 minutes) until the printer is back. An automation can switch the printer on as soon as a job arrives — see [Switch the printer on when a job arrives](#switch-the-printer-on-when-a-job-arrives).
 
 ## Which printers work
 
@@ -59,8 +44,7 @@ Not supported:
 
 - **USB-only printers.** The add-on prints over the network; a printer plugged into the Home Assistant machine is not used.
 - **Toner, page count and the reason behind a problem** need SNMP. A printer without it still prints and reports its queue; it reads **Online** while it is on the network (its Bonjour advert) and **Health** stays `OK`, because there is nothing to tell a problem from.
-
-A printer that does not announce itself on the network (no Bonjour) works too: you are asked for its address when you add it.
+- **Printers that don't announce themselves on the network** (no Bonjour/mDNS). Almost every network printer does; the advert is where the add-on reads the printer's model to match its driver. A printer added by its IP address alone gets no print queue yet.
 
 ## Install
 
@@ -100,7 +84,7 @@ Each printer becomes a device in Home Assistant:
 
 | Entity | What it tells you |
 | --- | --- |
-| **Status** | `Ready`, `Printing`, `Out of paper`, `Paper jam`, `Toner low`, `Door open`, `Offline`, `No driver` |
+| **Status** | `Ready`, `Printing`, `Out of paper`, `Paper jam`, `Toner low`, `Door open`, `Not accepting jobs`, `Offline`, `No driver` |
 | **Health** | `OK` / `Problem` — the one to alert on |
 | **Online** | Whether the printer answers on the network (SNMP), or for a printer without SNMP, whether it is advertising itself |
 | **Queue** | Jobs waiting |
@@ -110,6 +94,88 @@ Each printer becomes a device in Home Assistant:
 Toner, page count and the *reason* behind a problem come from **SNMP** (the standard Printer MIB). Printers that don't expose it don't get those sensors; everything else still works.
 
 You also get a notification when a printer is refusing jobs with work queued behind it — *"Out of paper"* — and when a printer turns up on the network that isn't set up yet (once; dismiss it and it stays dismissed). A printer with no driver, which cannot print, raises a **repair** under Settings → System → Repairs; select **Fix** on it to add one.
+
+## How to
+
+The entity IDs below follow your printer's name (a printer called **HP Laser** has `sensor.hp_laser_toner`); replace `my_printer` with yours.
+
+### Add another printer
+
+Settings → Devices & services → **AirPrint** → **Add a printer**. Pick it from the printers found on your network and fill in the [fields](#install). The add-on restarts to set it up, which pauses printing for a few seconds.
+
+### Change a printer's name, location, icon or driver
+
+Settings → Devices & services → **AirPrint** → the printer's **⋮** → **Edit printer**. Saving restarts the add-on. After a rename, phones may list the printer under its old name for up to an hour: they keep Bonjour names that long.
+
+### Remove a printer
+
+Settings → Devices & services → **AirPrint** → the printer's **⋮** → **Delete**. The add-on restarts without its print queue.
+
+### See what the add-on did
+
+Settings → Apps → **AirPrint** → **Log**. Its own lines start with `[airprint]`: the driver it matched, the queue it created, drivers it downloaded, and why a printer has no queue yet.
+
+### Get told when the printer needs attention
+
+**Health** turns on (`Problem`) when the printer is out of paper, jammed, has its door open, has no driver or stops answering. Its `reason` attribute says which:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.my_printer_health
+    to: "on"
+    for:
+      minutes: 2
+actions:
+  - action: notify.mobile_app_my_phone
+    data:
+      title: Printer needs attention
+      message: "{{ state_attr('binary_sensor.my_printer_health', 'reason') }}"
+```
+
+And to put toner on the shopping list before it runs out:
+
+```yaml
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.my_printer_toner
+    below: 10
+actions:
+  - action: todo.add_item
+    target:
+      entity_id: todo.shopping_list
+    data:
+      item: Toner for the printer
+```
+
+### Switch the printer on when a job arrives
+
+For a printer on a smart plug, the **Queue** sensor sees a new job within about 30 seconds:
+
+```yaml
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.my_printer_queue
+    above: 0
+conditions:
+  - condition: state
+    entity_id: switch.printer_plug
+    state: "off"
+actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.printer_plug
+```
+
+With a **button presser** instead of a plug (a SwitchBot Bot or fingerbot pressing the printer's power button), every press toggles the printer. Check the printer's **Online** sensor rather than the switch, press only while it reads off, and don't press again for a few minutes while the printer starts up — a second press switches it straight back off. To switch it off again, wait until **Queue** has been `0` for a while.
+
+### Update
+
+The add-on and the integration are released together under one version, so update both: Settings → Apps → **AirPrint** → **Update**, then update the **AirPrint** integration (Settings → Updates, or the Marketplace / HACS) and restart Home Assistant.
+
+### Uninstall
+
+Delete the **AirPrint** integration (Settings → Devices & services), then uninstall the add-on (Settings → Apps → **AirPrint** → **Uninstall**). Downloaded drivers stay in `/share/airprint/drivers`; delete the folder if you don't need them.
 
 ## Drivers
 
@@ -180,7 +246,7 @@ CUPS resolves it to an address **at the moment you print** — the same *"Lookin
 
 If it cannot be found, the printer reports **Offline** and the job waits in the queue, retried for up to 20 minutes, so a printer switched on in the meantime still prints it.
 
-A printer that advertises no Bonjour service at all is the one case where you are asked for an address.
+A printer that advertises no Bonjour service at all is not supported yet: without the advert there is no model to match a driver to.
 
 ## Printing over a VPN
 
