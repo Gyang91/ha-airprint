@@ -4,7 +4,9 @@
 load helpers
 
 setup() {
-	load_functions "${ADDON}/discover.sh" txt_value model_of driverless uri_name lpinfo_model driver_for
+	# shellcheck source=../../airprint/match.sh
+	. "${ADDON}/match.sh"
+	load_functions "${ADDON}/discover.sh" txt_value model_of driverless uri_name
 	MATCHES="${BATS_TEST_TMPDIR}/matches"
 	fake_bin
 }

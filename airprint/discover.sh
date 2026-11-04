@@ -14,51 +14,10 @@ set -uo pipefail
 #           raster. Empty when neither works.
 #
 # Passive mDNS only: never run CUPS device discovery (lpinfo -v), it opens 9100.
+# Driver matching (driver_for) is in match.sh, shared with printers added by IP.
 
-# Each "lpinfo -m" reads the whole PPD database (about a second), for every
-# printer on every scan. The database only changes when drivers.sh runs, at
-# add-on start, so each answer is kept in /tmp for the life of the container.
-MATCHES=/tmp/airprint-matches
-
-# lpinfo_model OPTION VALUE -> the best matching model, or nothing.
-lpinfo_model() {
-	local file out
-	file="${MATCHES}/$(printf '%s\n%s' "$1" "$2" | md5sum | cut -d' ' -f1)"
-
-	if [ -f "${file}" ]; then
-		cat "${file}"
-		return
-	fi
-
-	mkdir -p "${MATCHES}"
-	if out=$(lpinfo "$1" "$2" -m 2>"${file}.err") && [ -n "${out}" ]; then
-		out=$(printf '%s\n' "${out}" | awk 'NR == 1 { print $1 }')
-	elif grep -q 'not-found' "${file}.err"; then
-		out=""
-	else
-		# cupsd did not answer (or said nothing): ask again next scan.
-		rm -f "${file}.err"
-		return
-	fi
-
-	rm -f "${file}.err"
-	printf '%s' "${out}" > "${file}"
-	printf '%s' "${out}"
-}
-
-driver_for() {
-	local device_id=$1 model=$2 driver=""
-
-	if [ -n "${device_id}" ]; then
-		driver=$(lpinfo_model --device-id "${device_id}")
-	fi
-
-	if [ -z "${driver}" ] && [ -n "${model}" ]; then
-		driver=$(lpinfo_model --make-and-model "${model}")
-	fi
-
-	printf '%s' "${driver}"
-}
+# shellcheck source=match.sh
+. /match.sh
 
 txt_value() {
 	printf '%s' "$1" | grep -o "\"$2=[^\"]*\"" | head -1 | sed "s/^\"$2=//; s/\"\$//"
