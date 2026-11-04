@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.4](https://github.com/Gyang91/ha-airprint/compare/v1.13.3...v1.13.4) (2026-11-04)
+
+
+### Bug Fixes
+
+* a configured printer that is switching off is not a new printer ([638c4f8](https://github.com/Gyang91/ha-airprint/commit/638c4f8c4e163b157df5e881a30a39800ae2a093))
+
 ## [1.13.3](https://github.com/Gyang91/ha-airprint/compare/v1.13.2...v1.13.3) (2026-11-04)
 
 
