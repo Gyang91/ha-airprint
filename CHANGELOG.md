@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/Gyang91/ha-airprint/compare/v1.15.1...v1.15.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* a printer without SNMP no longer reads Problem forever ([5b2aa58](https://github.com/Gyang91/ha-airprint/commit/5b2aa582e4b1900169cb7b2cc02e512af40b2824))
+
 ## [1.15.1](https://github.com/Gyang91/ha-airprint/compare/v1.15.0...v1.15.1) (2026-11-04)
 
 
