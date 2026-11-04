@@ -191,6 +191,15 @@ while true; do
 		*" ${DEVICE} "*) continue ;;
 		esac
 
+		# Same Bonjour name as a configured printer, another service type: the
+		# same printer. While it switches off, its _pdl-datastream advert goes
+		# first and the _ipp one lingers, which looked like a new IPP-only printer.
+		SERVICE=${DEVICE#dnssd://}
+		SERVICE=${SERVICE%%._*}
+		case " ${CONFIGURED} " in
+		*"dnssd://${SERVICE}._"*) continue ;;
+		esac
+
 		DISCOVERED=$(printf '%s' "${DISCOVERED}" | jq -c --argjson found "${ROW}" '. + [$found]')
 
 		ID=$(printf '%s' "${DEVICE}" | tr -cs 'A-Za-z0-9' '_')
