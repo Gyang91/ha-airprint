@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.2](https://github.com/Gyang91/ha-airprint/compare/v1.14.1...v1.14.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* printer control needs authentication; keep the TLS certificate ([700f063](https://github.com/Gyang91/ha-airprint/commit/700f0630f98fcc3a1a4e44178aa784855cb090ac))
+
 ## [1.14.1](https://github.com/Gyang91/ha-airprint/compare/v1.14.0...v1.14.1) (2026-11-04)
 
 
