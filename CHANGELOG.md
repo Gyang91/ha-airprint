@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.3](https://github.com/Gyang91/ha-airprint/compare/v1.14.2...v1.14.3) (2026-11-04)
+
+
+### Documentation
+
+* which printers work, security, and what the fork adds ([7c28f7d](https://github.com/Gyang91/ha-airprint/commit/7c28f7d104c296b28c9b1b8684e348c2c57c5827))
+
 ## [1.14.2](https://github.com/Gyang91/ha-airprint/compare/v1.14.1...v1.14.2) (2026-11-04)
 
 
