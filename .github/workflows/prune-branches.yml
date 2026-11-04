@@ -1,0 +1,47 @@
+name: Prune branches
+
+# Deletes branches nothing needs any more (scripts/prune-branches.sh says
+# which): those of merged or closed pull requests, and leftovers with nothing
+# that is not already on main. Catches what the merges do not delete
+# themselves, such as an abandoned branch or a failed delete.
+# Daily, because a merge made with GITHUB_TOKEN (auto-merge, release) starts
+# no pull_request event. Run it by hand with "dry run" to see what it would do.
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # delete branches
+  pull-requests: read
+
+concurrency:
+  group: prune-branches
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune
+    # A fork's pull request gets a read-only token: nothing to prune from it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The default branch's script: a closed pull request has no merge ref,
+      # and its own copy of the script must not be what deletes branches.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Delete branches nothing needs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: scripts/prune-branches.sh "${{ github.repository }}" ${DRY_RUN}
