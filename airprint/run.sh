@@ -21,8 +21,11 @@ else
 	echo 'SystemGroup root lpadmin' >> /etc/cups/cups-files.conf
 fi
 
-# Every long-running service is a child of this script, so it can tell when
-# one stops (see the end).
+# The services printing depends on (dbus, Avahi, cupsd) are children of this
+# script; if one stops, the add-on exits and the Supervisor watchdog restarts
+# it (see the end). The helpers (monitor, status feed, its advert) are not
+# needed to print, so they are restarted in place instead: a bug in one of
+# them must never take printing down.
 SERVICES=()
 
 wait_for() {
@@ -30,7 +33,16 @@ wait_for() {
 		"$@" >/dev/null 2>&1 && return 0
 		sleep 1
 	done
+	echo "[airprint] gave up waiting for: $*"
 	return 1
+}
+
+keep_running() {
+	while true; do
+		"$@" || true
+		echo "[airprint] $1 stopped - restarting it in 10 s"
+		sleep 10
+	done
 }
 
 mkdir -p /run/dbus
@@ -39,7 +51,9 @@ dbus-daemon --system --nofork &
 SERVICES+=($!)
 wait_for test -S /run/dbus/system_bus_socket
 
-avahi-daemon --no-chroot &
+# --syslog: in the foreground Avahi logs every interface change to the add-on
+# log; daemonized it went to syslog (which the container does not keep).
+avahi-daemon --no-chroot --syslog &
 SERVICES+=($!)
 wait_for avahi-daemon --check
 
@@ -127,16 +141,13 @@ done
 
 cupsctl --share-printers
 
-/monitor.sh &
-SERVICES+=($!)
-python3 -m http.server 8099 --directory /srv --bind 0.0.0.0 >/dev/null 2>&1 &
-SERVICES+=($!)
-avahi-publish -s "AirPrint add-on" _airprint-status._tcp 8099 >/dev/null 2>&1 &
-SERVICES+=($!)
+keep_running /monitor.sh &
+keep_running python3 -m http.server 8099 --directory /srv --bind 0.0.0.0 >/dev/null 2>&1 &
+keep_running avahi-publish -s "AirPrint add-on" _airprint-status._tcp 8099 >/dev/null 2>&1 &
 
-# If any service stops, stop the add-on too: the Supervisor's watchdog then
-# restarts it whole. Running on without Avahi, the status feed or the monitor
-# looks healthy but hides the printer from phones or freezes its sensors.
+# If a service printing depends on stops, stop the add-on too: the Supervisor's
+# watchdog then restarts it whole. Running on without Avahi or cupsd looks
+# healthy but hides the printer from phones or loses jobs.
 wait -n "${SERVICES[@]}" || true
 echo "[airprint] a service stopped - exiting so the Supervisor restarts the add-on"
 exit 1

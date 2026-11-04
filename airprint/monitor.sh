@@ -258,9 +258,14 @@ refresh_jobs() {
 	PRINTERS=$(printf '%s' "${PRINTERS}" | jq -c --argjson jobs "$(job_counts)" 'map(.jobs = ($jobs[.id] // 0))')
 }
 
+# Written only when something changed: most ticks change nothing, and this is
+# the add-on's disk. A failed jq must not replace the feed with an empty file.
 write_status() {
-	jq -nc --argjson printers "${PRINTERS}" --argjson discovered "${DISCOVERED}" --arg slug "${SLUG}" \
-		'{printers:$printers, discovered:$discovered, slug:$slug}' > "${STATUS}.tmp"
+	local status
+	status=$(jq -nc --argjson printers "${PRINTERS}" --argjson discovered "${DISCOVERED}" --arg slug "${SLUG}" \
+		'{printers:$printers, discovered:$discovered, slug:$slug}') || return 0
+	[ "${status}" = "$(cat "${STATUS}" 2>/dev/null)" ] && return 0
+	printf '%s\n' "${status}" > "${STATUS}.tmp"
 	mv "${STATUS}.tmp" "${STATUS}"
 }
 
