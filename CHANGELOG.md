@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/Gyang91/ha-airprint/compare/v1.13.0...v1.13.1) (2026-11-04)
+
+
+### Documentation
+
+* GHCR package inherits the repository's public visibility ([7701693](https://github.com/Gyang91/ha-airprint/commit/77016936b3ce06abadbf97f1f41a6d9ec754525c))
+
 ## [1.13.0](https://github.com/Gyang91/ha-airprint/compare/v1.12.0...v1.13.0) (2026-11-04)
 
 
