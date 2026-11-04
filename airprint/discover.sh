@@ -49,6 +49,15 @@ driverless() {
 	txt_value "${txt}" pdl | grep -qE 'image/(urf|pwg-raster)'
 }
 
+# avahi-browse -p escapes names (\032 = space, \040 = "("); a CUPS URI needs
+# them decoded and URL-encoded instead: "HP Laser (x)" -> "HP%20Laser%20(x)".
+uri_name() {
+	python3 -c 'import re, sys, urllib.parse
+name = re.sub(r"\\(\d{3})", lambda m: chr(int(m.group(1))), sys.argv[1])
+name = re.sub(r"\\(.)", r"\1", name)
+print(urllib.parse.quote(name, safe="()"))' "$1"
+}
+
 browse() {
 	timeout 6 avahi-browse -rtp "$1" 2>/dev/null | grep '^=' | grep ';IPv4;'
 }
@@ -91,11 +100,16 @@ while IFS=';' read -r _ _ _ SERVICE _ _ _ IP _ TXT; do
 	URI="${DEVICE}"
 	DRIVER=$(driver_for "${DEVICE_ID}" "${MODEL}")
 
+	# cups-filters lists a reachable AirPrint printer as a "driverless:ipp://..."
+	# model. That PPD only exists while the printer is on, and its raster output
+	# belongs on IPP, not on the raw port - so treat it as driverless below.
+	case "${DRIVER}" in driverless:*) DRIVER="" ;; esac
+
 	if [ -z "${DRIVER}" ]; then
 		IPP_SERVICE=$(ipp_for "${IP}")
 		if [ -n "${IPP_SERVICE}" ]; then
 			DRIVER=everywhere
-			URI="dnssd://${IPP_SERVICE}._ipp._tcp.local/"
+			URI="dnssd://$(uri_name "${IPP_SERVICE}")._ipp._tcp.local/"
 		fi
 	fi
 
@@ -108,7 +122,7 @@ while IFS=$'\t' read -r IP SERVICE MODEL; do
 	[ -n "${IP}" ] || continue
 	case "${SEEN}" in *" ${IP} "*) continue ;; esac
 	DEVICE="dnssd://${SERVICE}._ipp._tcp.local/"
-	add "${DEVICE}" "${DEVICE}" "${MODEL}" "${IP}" "" everywhere
+	add "${DEVICE}" "dnssd://$(uri_name "${SERVICE}")._ipp._tcp.local/" "${MODEL}" "${IP}" "" everywhere
 	SEEN="${SEEN}${IP} "
 done < <(printf '%s' "${IPP}")
 

@@ -14,17 +14,20 @@ DRIVER=$5
 CACHE=/config/driverless
 
 if [ "${DRIVER}" = "everywhere" ]; then
+	# cups-filters builds the PPD in its own process from the printer's IPP
+	# attributes (port 631). Not "lpadmin -m everywhere": that makes cupsd 2.4.2
+	# (bookworm) build it and crash with "free(): invalid pointer".
 	mkdir -p "${CACHE}"
-	if lpadmin -p "${QUEUE}" -v "${URI}" -m everywhere 2>/dev/null; then
-		cp "/etc/cups/ppd/${QUEUE}.ppd" "${CACHE}/${QUEUE}.ppd" 2>/dev/null || true
+	if /usr/lib/cups/driver/driverless cat "driverless:ipp://${URI#dnssd://}" > "${CACHE}/${QUEUE}.ppd.new" 2>/dev/null &&
+		grep -q '^\*PPD-Adobe' "${CACHE}/${QUEUE}.ppd.new"; then
+		mv "${CACHE}/${QUEUE}.ppd.new" "${CACHE}/${QUEUE}.ppd"
 		printf '%s\n' "${URI}" > "${CACHE}/${QUEUE}.uri"
-		MODEL=()   # the queue already has its PPD; only set the options below
-	elif [ -f "${CACHE}/${QUEUE}.ppd" ]; then
-		echo "[airprint] ${LABEL}: printer not reachable - using its saved driverless PPD"
-		MODEL=(-P "${CACHE}/${QUEUE}.ppd")
 	else
-		exit 1
+		rm -f "${CACHE}/${QUEUE}.ppd.new"
+		[ -f "${CACHE}/${QUEUE}.ppd" ] || exit 1
+		echo "[airprint] ${LABEL}: printer not reachable - using its saved driverless PPD"
 	fi
+	MODEL=(-P "${CACHE}/${QUEUE}.ppd")
 else
 	MODEL=(-m "${DRIVER}")
 fi
