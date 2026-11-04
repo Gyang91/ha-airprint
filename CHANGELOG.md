@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.3](https://github.com/Gyang91/ha-airprint/compare/v1.13.2...v1.13.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* never offer the add-on's own AirPrint queue as a new printer ([c42e52e](https://github.com/Gyang91/ha-airprint/commit/c42e52eb268daf55d5bf0ceeb1e6af12b6e91136))
+
 ## [1.13.2](https://github.com/Gyang91/ha-airprint/compare/v1.13.1...v1.13.2) (2026-11-04)
 
 
