@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.4](https://github.com/Gyang91/ha-airprint/compare/v1.15.3...v1.15.4) (2026-11-04)
+
+
+### Bug Fixes
+
+* give printers added by IP address a print queue ([7527c01](https://github.com/Gyang91/ha-airprint/commit/7527c012e13f65bf4eae73aa899a0b95a83cd56a))
+
 ## [1.15.3](https://github.com/Gyang91/ha-airprint/compare/v1.15.2...v1.15.3) (2026-11-04)
 
 
