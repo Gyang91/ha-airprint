@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.3](https://github.com/Gyang91/ha-airprint/compare/v1.15.2...v1.15.3) (2026-11-04)
+
+
+### Documentation
+
+* README header that renders in the Marketplace ([3d64613](https://github.com/Gyang91/ha-airprint/commit/3d6461380a2e44e94dc945236de11543d3c87dd6))
+
 ## [1.15.2](https://github.com/Gyang91/ha-airprint/compare/v1.15.1...v1.15.2) (2026-11-04)
 
 
