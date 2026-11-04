@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.2](https://github.com/Gyang91/ha-airprint/compare/v1.13.1...v1.13.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* keep jobs for a switched-off printer waiting for 20 minutes ([c512bba](https://github.com/Gyang91/ha-airprint/commit/c512bba1263900b4cdaa66f0bb39fcc57b8a07da))
+
 ## [1.13.1](https://github.com/Gyang91/ha-airprint/compare/v1.13.0...v1.13.1) (2026-11-04)
 
 
