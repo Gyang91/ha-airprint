@@ -28,6 +28,10 @@ PRINTERS="[]"
 DISCOVERED="[]"
 SLUG=""
 
+# Last address seen per device. A sleeping printer sometimes misses an mDNS
+# browse; it still answers SNMP at its last address, so it stays Online.
+declare -A KNOWN_HOSTS=()
+
 notify() {
 	curl -sS -o /dev/null -m 10 \
 		-H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
@@ -102,7 +106,7 @@ host_of() {
 
 scan() {
 	local found configured="" jobs_by_queue
-	local QUEUE DEVICE LABEL LOCATION DRIVER MATCH URI HOST SNMP ONLINE PROBLEM JOBS MODEL
+	local QUEUE DEVICE LABEL LOCATION DRIVER MATCH URI HOST ADVERTISED SNMP ONLINE PROBLEM JOBS MODEL
 	local TONER SUPPLY PAGES REASONS LEVEL CAPACITY COUNT WHY ROW NAME SERVICE ID
 
 	found=$(/discover.sh)
@@ -128,18 +132,28 @@ scan() {
 		printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}.next"
 
 		HOST=$(host_of "${DEVICE}" "${found}")
+		ADVERTISED=true
+		if [ -n "${HOST}" ]; then
+			KNOWN_HOSTS["${DEVICE}"]=${HOST}
+		else
+			HOST=${KNOWN_HOSTS["${DEVICE}"]:-}
+			ADVERTISED=false
+		fi
+
 		SNMP=""
 		[ -n "${HOST}" ] && SNMP=$(snmp_status "${HOST}")
 
-		if [ -z "${HOST}" ]; then
-			ONLINE=false
-			PROBLEM=false
-		elif [ -n "$(snmp_value "${SNMP}" "${OID_UPTIME}")" ]; then
+		if [ -n "$(snmp_value "${SNMP}" "${OID_UPTIME}")" ]; then
 			ONLINE=true
 			PROBLEM=false
-		else
+		elif [ "${ADVERTISED}" = "true" ]; then
+			# On the network but not answering: stuck or showing an error.
 			ONLINE=true
 			PROBLEM=true
+		else
+			ONLINE=false
+			PROBLEM=false
+			HOST=""
 		fi
 
 		JOBS=$(printf '%s' "${jobs_by_queue}" | jq --arg q "${QUEUE}" '.[$q] // 0')
