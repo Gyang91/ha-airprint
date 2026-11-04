@@ -97,7 +97,7 @@ for i in $(seq 0 $((COUNT - 1))); do
 
 	SUFFIX=2
 	BASE="${QUEUE}"
-	while cut -f1 "${QUEUES}" | grep -qxF "${QUEUE}"; do
+	while cut -d "${SEP}" -f1 "${QUEUES}" | grep -qxF "${QUEUE}"; do
 		QUEUE="${BASE}_${SUFFIX}"
 		SUFFIX=$((SUFFIX + 1))
 	done
@@ -113,7 +113,7 @@ for i in $(seq 0 $((COUNT - 1))); do
 		continue
 	fi
 
-	IFS=$'\t' read -r DRIVER URI < <(match "${FOUND}" "${DEVICE}" "${QUEUE}")
+	IFS="${SEP}" read -r DRIVER URI < <(match "${FOUND}" "${DEVICE}" "${QUEUE}")
 
 	if [ -z "${PRINTER_ICON}" ]; then
 		LABEL="${NAME}"
@@ -123,7 +123,7 @@ for i in $(seq 0 $((COUNT - 1))); do
 
 	if [ -z "${DRIVER}" ]; then
 		echo "[airprint] ${NAME}: no driver matched yet - will keep trying"
-		printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
+		row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
 		continue
 	fi
 
@@ -131,11 +131,11 @@ for i in $(seq 0 $((COUNT - 1))); do
 
 	if ! /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${DRIVER}"; then
 		echo "[airprint] ${NAME}: could not create the print queue - will keep trying"
-		printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
+		row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "" >> "${QUEUES}"
 		continue
 	fi
 
-	printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}"
+	row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}"
 	echo "[airprint] ${LABEL} -> ${URI}"
 done
 

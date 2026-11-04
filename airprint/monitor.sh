@@ -115,21 +115,21 @@ scan() {
 
 	: > "${QUEUES}.next"
 
-	while IFS=$'\t' read -r QUEUE DEVICE LABEL LOCATION DRIVER; do
+	while IFS="${SEP}" read -r QUEUE DEVICE LABEL LOCATION DRIVER; do
 		[ -n "${QUEUE}" ] || continue
 		configured="${configured} ${DEVICE}"
 		LOCATION=${LOCATION:-}
 		DRIVER=${DRIVER:-}
 
 		if [ -z "${DRIVER}" ]; then
-			IFS=$'\t' read -r MATCH URI < <(match "${found}" "${DEVICE}" "${QUEUE}")
+			IFS="${SEP}" read -r MATCH URI < <(match "${found}" "${DEVICE}" "${QUEUE}")
 			if [ -n "${MATCH}" ] && /queue.sh "${QUEUE}" "${URI}" "${LABEL}" "${LOCATION}" "${MATCH}"; then
 				echo "[airprint] ${LABEL}: driver ${MATCH} -> queue created"
 				DRIVER=${MATCH}
 			fi
 		fi
 
-		printf '%s\t%s\t%s\t%s\t%s\n' "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}.next"
+		row "${QUEUE}" "${DEVICE}" "${LABEL}" "${LOCATION}" "${DRIVER}" >> "${QUEUES}.next"
 
 		HOST=$(host_of "${DEVICE}" "${found}")
 		ADVERTISED=true
