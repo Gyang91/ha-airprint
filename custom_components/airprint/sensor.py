@@ -4,19 +4,18 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from . import AirPrintConfigEntry
 from .entity import AirPrintEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: AirPrintConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     for subentry_id, subentry in entry.subentries.items():
         printer = dict(subentry.data)
@@ -32,8 +31,6 @@ async def async_setup_entry(
 
 
 class AirPrintStatus(AirPrintEntity, SensorEntity):
-    _attr_name = "Status"
-    _attr_icon = "mdi:printer-check"
 
     def __init__(self, coordinator, printer: dict) -> None:
         super().__init__(coordinator, printer, "status")
@@ -62,8 +59,6 @@ class AirPrintStatus(AirPrintEntity, SensorEntity):
 
 
 class AirPrintJobs(AirPrintEntity, SensorEntity):
-    _attr_name = "Queue"
-    _attr_icon = "mdi:tray-full"
     _attr_native_unit_of_measurement = "jobs"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -76,8 +71,6 @@ class AirPrintJobs(AirPrintEntity, SensorEntity):
 
 
 class AirPrintToner(AirPrintEntity, SensorEntity):
-    _attr_name = "Toner"
-    _attr_icon = "mdi:water-percent"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -98,8 +91,6 @@ class AirPrintToner(AirPrintEntity, SensorEntity):
 
 
 class AirPrintPages(AirPrintEntity, SensorEntity):
-    _attr_name = "Printed"
-    _attr_icon = "mdi:counter"
     _attr_native_unit_of_measurement = "pages"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
