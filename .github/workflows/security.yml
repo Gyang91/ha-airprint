@@ -1,0 +1,93 @@
+name: Security
+
+# Scans the add-on image for known vulnerabilities (Trivy, OS packages).
+# - Fails on fixed-upstream HIGH/CRITICAL findings: those are fixed by
+#   rebuilding the image (the Dockerfile applies Debian's security updates).
+# - Runs weekly, because new CVEs appear in an image that did not change.
+# - Reports go to Security > Code scanning.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Scan this published image instead of building one (e.g. ghcr.io/gyang91/ha-airprint/airprint:1.13.0)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Image vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+        if: ${{ !inputs.image }}
+
+      - name: Build the image
+        if: ${{ !inputs.image }}
+        uses: docker/build-push-action@v7
+        with:
+          context: airprint
+          platforms: linux/amd64
+          load: true
+          tags: airprint:scan
+          cache-from: type=gha,scope=amd64
+
+      - name: Image to scan
+        id: target
+        env:
+          INPUT_IMAGE: ${{ inputs.image }}
+        run: echo "ref=${INPUT_IMAGE:-airprint:scan}" >> "${GITHUB_OUTPUT}"
+
+      - name: Full report (all severities)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.target.outputs.ref }}
+          scanners: vuln
+          vuln-type: os,library
+          format: sarif
+          output: trivy.sarif
+
+      - name: Upload to code scanning
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image
+
+      - name: Fail on fixable HIGH/CRITICAL
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.target.outputs.ref }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          output: trivy.txt
+          exit-code: "1"
+          skip-setup-trivy: true
+
+      - name: Summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "### Fixable HIGH/CRITICAL in ${{ steps.target.outputs.ref }}"
+            echo '```'
+            cat trivy.txt 2>/dev/null || echo "no report"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          grep -E '^│ [a-z0-9.+-]+ +│ CVE-' trivy.txt 2>/dev/null | head -40 |
+            sed -E 's/│/|/g; s/ +/ /g; s/^/::warning title=Fixable CVE::/' || true
