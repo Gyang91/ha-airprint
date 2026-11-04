@@ -70,7 +70,7 @@ Never edit them by hand. release-please bumps both (`extra-files` in `release-pl
 
 `chore:`, `ci:`, `docs:`, `test:` do not release. To force a version, add `Release-As: X.Y.Z` to a commit body.
 
-The GHCR package must be **public**, or the Supervisor cannot pull it (first publish creates it private: Package settings → Change visibility).
+The GHCR package must be **public**, or the Supervisor cannot pull it. It inherits the public repository's visibility (checked on the first publish, 2026-11-04). Verify with an anonymous pull: `curl "https://ghcr.io/token?scope=repository:gyang91/ha-airprint/airprint:pull"`, then request `/v2/gyang91/ha-airprint/airprint/manifests/<version>` with that token; it must return 200.
 
 ## Keep the README current
 
