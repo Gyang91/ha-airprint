@@ -52,20 +52,26 @@ driverless() {
 # avahi-browse -p escapes names (\032 = space, \040 = "("); a CUPS URI needs
 # them decoded and URL-encoded instead: "HP Laser (x)" -> "HP%20Laser%20(x)".
 uri_name() {
+	# \DDD are the bytes of a UTF-8 name, so decode bytes first ("\240\159\150\168" is one emoji).
 	python3 -c 'import re, sys, urllib.parse
-name = re.sub(r"\\(\d{3})", lambda m: chr(int(m.group(1))), sys.argv[1])
-name = re.sub(r"\\(.)", r"\1", name)
-print(urllib.parse.quote(name, safe="()"))' "$1"
+raw = re.sub(rb"\\(\d{3})", lambda m: bytes([int(m.group(1))]), sys.argv[1].encode())
+raw = re.sub(rb"\\(.)", rb"\1", raw)
+print(urllib.parse.quote(raw, safe="()"))' "$1"
 }
 
 browse() {
 	timeout 6 avahi-browse -rtp "$1" 2>/dev/null | grep '^=' | grep ';IPv4;'
 }
 
+# This host's own addresses (host network): its CUPS advertises the shared
+# queues over _ipp._tcp, and those must never be offered as new printers.
+OWN=" $(hostname -I 2>/dev/null) "
+
 # Driverless-capable IPP adverts, by IPv4 address: "address<TAB>service<TAB>model".
 IPP=""
 while IFS=';' read -r _ _ _ SERVICE _ _ _ IP _ TXT; do
 	[ -n "${SERVICE}" ] || continue
+	case "${OWN}" in *" ${IP} "*) continue ;; esac
 	driverless "${TXT}" || continue
 	IPP="${IPP}${IP}	${SERVICE}	$(model_of "${TXT}" "${SERVICE}")
 "
