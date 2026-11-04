@@ -186,7 +186,7 @@ Away from home, through a VPN (WireGuard, say), the printer does not show up: ph
           <key>IPAddress</key><string>192.168.1.100</string>
           <key>ResourcePath</key><string>printers/My_Printer</string>
           <key>Port</key><integer>631</integer>
-          <key>ForceTLS</key><false/>
+          <key>ForceTLS</key><true/>
         </dict>
       </array>
     </dict>
@@ -195,7 +195,7 @@ Away from home, through a VPN (WireGuard, say), the printer does not show up: ph
 </plist>
 ```
 
-The job travels inside the VPN tunnel, which encrypts it. At home the printer may then be listed twice (from Bonjour and from the profile); both work.
+Keep **ForceTLS** on: without it iOS lists no printer from the profile when away ("No AirPrint Printers Found"), even though the print server is reachable. CUPS answers TLS on port 631 with its own certificate, so nothing else needs setting up. At home the printer may then be listed twice (from Bonjour and from the profile); both work.
 
 ## Icons
 
