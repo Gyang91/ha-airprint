@@ -65,9 +65,10 @@ Turn on **Watchdog** on the add-on's page, so Home Assistant restarts it if its 
 
 | Field | |
 | --- | --- |
+| **Printer** | The printer found on your network. For a printer that does not announce itself with Bonjour, its IP address (e.g. `192.168.1.50`). |
 | **Name** | Pre-filled with the printer's make and model. This is the name shown in the print dialogue. Clear it to go back to the make and model. |
 | **Location** | Optional. Shown under the name when printing. |
-| **Icon** | Optional. An emoji shown in front of the name — see [Icons](#icons). |
+| **Icon** | Optional. One of 🖨️ 📠 📄 📁 ☁️ 🏢 🏠, shown in front of the name — see [Icons](#icons). |
 
 If the Marketplace opens the AirPrint setup straight after installing, it asks for the add-on's address first: keep `127.0.0.1` and port `8099`. Your printer is offered next.
 
