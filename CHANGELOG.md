@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.6](https://github.com/Gyang91/ha-airprint/compare/v1.15.5...v1.15.6) (2026-11-17)
+
+
+### Bug Fixes
+
+* advertise IPv4 only so iPhones do not time out on an IPv6 address ([92b0dbf](https://github.com/Gyang91/ha-airprint/commit/92b0dbf47b89e011771e4d88c01678ab503982b8))
+
 ## [1.15.5](https://github.com/Gyang91/ha-airprint/compare/v1.15.4...v1.15.5) (2026-11-17)
 
 
