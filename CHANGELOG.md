@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.5](https://github.com/Gyang91/ha-airprint/compare/v1.15.4...v1.15.5) (2026-11-17)
+
+
+### Bug Fixes
+
+* listen on IPv6 so iPhones on the home network find the printer ([f3c89f8](https://github.com/Gyang91/ha-airprint/commit/f3c89f83e5becf8638b0e9dac05112da0eb36b30))
+
 ## [1.15.4](https://github.com/Gyang91/ha-airprint/compare/v1.15.3...v1.15.4) (2026-11-04)
 
 
