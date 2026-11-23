@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.7](https://github.com/Gyang91/ha-airprint/compare/v1.15.6...v1.15.7) (2026-11-23)
+
+
+### Bug Fixes
+
+* take Debian's security updates on every release build ([fb6db84](https://github.com/Gyang91/ha-airprint/commit/fb6db84d7729d19104f85a8683cbef808d69d571))
+
 ## [1.15.6](https://github.com/Gyang91/ha-airprint/compare/v1.15.5...v1.15.6) (2026-11-17)
 
 
