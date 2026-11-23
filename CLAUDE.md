@@ -153,7 +153,7 @@ Do not build these again without asking the owner:
 
 ## Security scanning
 
-`.github/workflows/security.yml` builds the image and scans it with Trivy (official `aquasec/trivy` image; the trivy-action install script failed to download) on every push, pull request and weekly. It fails only on **fixable** HIGH/CRITICAL findings and uploads the full report to Security > Code scanning. The Dockerfile runs `apt-get upgrade`, so a rebuild (any release) takes Debian's current security updates; when the weekly scan fails, cut a release.
+`.github/workflows/security.yml` builds the image and scans it with Trivy (official `aquasec/trivy` image; the trivy-action install script failed to download) on every push, pull request and weekly. It fails only on **fixable** HIGH/CRITICAL findings and uploads the full report to Security > Code scanning. The Dockerfile runs `apt-get upgrade`, so a rebuild (any release) takes Debian's current security updates; when the weekly scan fails, cut a release. That only works because the release and scan builds pass today's date as the `APT_REFRESH` build arg: the apt `RUN` line never changes, so without it the GitHub Actions layer cache served the first build's packages forever, and "rebuild" fixed nothing (Ghostscript `deb12u8` stayed in the scan for weeks after `deb12u9` shipped).
 
 Most open alerts have **no fix in Debian bookworm** (nor trixie). Checked 2026-11-04 for the network-facing CUPS ones:
 
