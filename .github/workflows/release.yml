@@ -137,9 +137,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
     steps:
       - name: Image name
-        run: echo "IMAGE=ghcr.io/${IMAGE_NAME,,}" >> "${GITHUB_ENV}"
+        id: name
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          echo "IMAGE=ghcr.io/${IMAGE_NAME,,}" >> "${GITHUB_ENV}"
+          echo "image=ghcr.io/${IMAGE_NAME,,}:${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - uses: docker/login-action@v4
         with:
@@ -156,3 +163,17 @@ jobs:
             --tag "${IMAGE}:latest" \
             "${IMAGE}:${VERSION}-amd64" \
             "${IMAGE}:${VERSION}-aarch64"
+
+  # The release pull request's own CI and Security runs never start: the job
+  # above merges it and deletes its branch within seconds, and they end as
+  # failed with no jobs. So scan what was actually published, by pulling it
+  # (anonymously, as the Supervisor does).
+  scan:
+    name: Scan
+    needs: publish
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/security.yml
+    with:
+      image: ${{ needs.publish.outputs.image }}

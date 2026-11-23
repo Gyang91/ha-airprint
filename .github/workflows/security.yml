@@ -5,6 +5,8 @@ name: Security
 #   rebuilding the image (the Dockerfile applies Debian's security updates).
 # - Runs weekly, because new CVEs appear in an image that did not change.
 # - Reports go to Security > Code scanning.
+# - Release calls it on the image it just published (workflow_call): the
+#   release pull request's own checks never run (see release.yml).
 on:
   push:
     branches: [main]
@@ -17,6 +19,12 @@ on:
         description: Scan this published image instead of building one (e.g. ghcr.io/gyang91/ha-airprint/airprint:1.13.0)
         required: false
         default: ""
+  workflow_call:
+    inputs:
+      image:
+        description: Published image to scan
+        required: true
+        type: string
 
 permissions:
   contents: read
