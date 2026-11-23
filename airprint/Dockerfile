@@ -9,8 +9,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 # from putting it back.
 #
 # upgrade: the base image can lag behind Debian's security updates; every
-# build takes the current ones (see the Security workflow).
-RUN echo "cups cupsys/backend multiselect lpd, socket, usb, dnssd" | debconf-set-selections \
+# build takes the current ones (see the Security workflow). The layer cache
+# would otherwise keep the first build's packages forever, because this RUN's
+# text never changes: CI passes today's date as APT_REFRESH, so the packages
+# are refreshed at most a day late.
+ARG APT_REFRESH=""
+RUN echo "apt refresh: ${APT_REFRESH:-none}" \
+ && echo "cups cupsys/backend multiselect lpd, socket, usb, dnssd" | debconf-set-selections \
  && apt-get update \
  && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends \

@@ -35,6 +35,12 @@ jobs:
       - uses: docker/setup-buildx-action@v4
         if: ${{ !inputs.image }}
 
+      # Without this the cached apt layer is reused and the scan reports
+      # updates the image would already have on a fresh build.
+      - name: Package refresh date
+        if: ${{ !inputs.image }}
+        run: echo "APT_REFRESH=$(date -u +%F)" >> "${GITHUB_ENV}"
+
       - name: Build the image
         if: ${{ !inputs.image }}
         uses: docker/build-push-action@v7
@@ -43,6 +49,7 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: airprint:scan
+          build-args: APT_REFRESH=${{ env.APT_REFRESH }}
           cache-from: type=gha,scope=amd64
 
       - name: Image to scan
